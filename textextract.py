@@ -51,7 +51,12 @@ class Blocks:
                         nbx1, nby1, nbx2, nby2 = nxtblk
                         if nbx1-1 <= colstart <= nbx2+1 or nbx1-1 <= colend <= nbx2+1 or  \
                         colstart <= nbx1 <= nbx2 <= colend:
-                            newitem = ( nx1, y1, nbx2, row)
+                            # extend the beginning y position of box to
+                            # be the minimum of both boxes being merged
+                            if y1 < nby1:
+                                newitem = ( nx1, y1, nbx2, row)
+                            else:
+                                newitem = ( nx1, nby1, nbx2, row)
                             self.currblocks[ii] = newitem
 
                             del self.currblocks[ii+1]
@@ -102,7 +107,7 @@ class Blocks:
 
 
 
-im = Image.open('2.png').convert("L")
+im = Image.open('chapter2.png').convert("L")
 im2 = Image.new('RGB', im.size, color='lightblue')
 draw = ImageDraw.Draw(im2)
 print(im.format, im.size, im.mode)
