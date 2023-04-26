@@ -1,154 +1,139 @@
 from PIL import Image, ImageDraw
+from numba import njit
+from time import process_time
 import os
 
+def data_to_raster(data, width, height):
+    WHITE=255
+    cursorx = None
+    cursorstart = None
+    cursory = None
 
-class Blocks:
-    def __init__(self):
-        self.blocks = []
-        self.currblocks = []
+    rowdata = []
+    rows = []
+    curry = None
+    for ii in range(len(data)):
+        pixel = data[ii]
+        if pixel == WHITE:
+            if cursorstart is not None:
+                if curry != cursory and curry is not None:
+                    rows.append((curry, rowdata))
+                    rowdata = [(cursorstart, cursorx)]
+                else:
+                    rowdata.append((cursorstart, cursorx))
+                curry = cursory
+                #blocks.insert_row(*row)
+                # Draw the actual lines making up the original text
+                # so we are basically just copying
 
-    def flush(self):
-        indexes = []
+                #draw.line([(cursorstart, cursory), (cursorx, cursory)], fill='black', width=1)
+                cursorstart = None
+        else: #if pixel != WHITE:
+            cursorx = ii % width
+            cursory = ii // width
+            if cursorstart is None:
+                cursorstart = cursorx
 
-        for blk in self.currblocks:
-            #print (blk)
-            x1, y1, x2, y2 = blk
-            area = (x2 - x1)*(y2-y1)
-            if area > 0:
-                self.blocks.append(blk)
+    rows.append((cursory, rowdata))
+    return rows
 
-        self.currblocks = []
+def find_boxes(raster_data):
+    changeitems = []
+    #print (self.blocks)
+    #print (self.currblocks)
+    #print (row, colstart, colend)
 
-    def insert_row(self, row, colstart, colend):
+    currblocks = []
+    blocks = []
+    
+    for y, segments in raster_data:
+        row = y
+        for rx1, rx2 in segments:
+            colstart = rx1
+            colend = rx2
+            found_blk = None
+            combine = None
+            for ii, blk in enumerate(currblocks):
+                x1, y1, x2, y2 = blk
+                if row in [y2, y2+1]: # on same line or immediately following line
+                    if x1-1 <= colstart <= x2+1 or x1-1 <= colend <= x2+1 or  \
+                            colstart <= x1 <= x2 <= colend:
+                        if colstart < x1:
+                            nx1 = colstart
+                        else:
+                            nx1 = x1
 
-        changeitems = []
-        print (self.blocks)
-        print (self.currblocks)
-        print (row, colstart, colend)
+                        if colend > x2:
+                            nx2 = colend
+                        else: 
+                            nx2 = x2
+                        newitem = ( nx1, y1, nx2, row)
+                        found_blk = ii
+                        currblocks[ii] = newitem
+                        # Let's see if merging is possible
+                        #
+                        #import pdb; pdb.set_trace()
+                        if ii < len(currblocks) - 1:
+                            for jj in range(len(currblocks)-1,ii,-1):
+                                nxtblk = currblocks[jj]
+                                nbx1, nby1, nbx2, nby2 = nxtblk
+                                if nbx1-1 <= colstart <= nbx2+1 or nbx1-1 <= colend <= nbx2+1 or  \
+                                colstart <= nbx1 <= nbx2 <= colend:
+                                    # extend the beginning y position of box to
+                                    # be the minimum of both boxes being merged
+                                    if y1 < nby1:
+                                        newitem = ( nx1, y1, nbx2, row)
+                                    else:
+                                        newitem = ( nx1, nby1, nbx2, row)
+                                    currblocks[ii] = newitem
 
-        found_blk = None
-        combine = None
-        for ii, blk in enumerate(self.currblocks):
-            x1, y1, x2, y2 = blk
-            if row in [y2, y2+1]: # on same line or immediately following line
-                if x1-1 <= colstart <= x2+1 or x1-1 <= colend <= x2+1 or  \
-                        colstart <= x1 <= x2 <= colend:
-                    if colstart < x1:
-                        nx1 = colstart
-                    else:
-                        nx1 = x1
+                                    del currblocks[jj]
+                        break
+            else:
+                currblocks.append( (colstart, row, colend, row) )
 
-                    if colend > x2:
-                        nx2 = colend
-                    else: 
-                        nx2 = x2
-                    newitem = ( nx1, y1, nx2, row)
-                    found_blk = ii
-                    self.currblocks[ii] = newitem
-                    # Let's see if merging is possible
-                    if ii < len(self.currblocks) - 1:
-                        nxtblk = self.currblocks[ii+1]
-                        nbx1, nby1, nbx2, nby2 = nxtblk
-                        if nbx1-1 <= colstart <= nbx2+1 or nbx1-1 <= colend <= nbx2+1 or  \
-                        colstart <= nbx1 <= nbx2 <= colend:
-                            # extend the beginning y position of box to
-                            # be the minimum of both boxes being merged
-                            if y1 < nby1:
-                                newitem = ( nx1, y1, nbx2, row)
-                            else:
-                                newitem = ( nx1, nby1, nbx2, row)
-                            self.currblocks[ii] = newitem
+            # Look for blocks we can merge that are adjacent to each other
+            currblocks.sort()
+            # Look for blocks that have become separated from all other blocks
+            indexes = []
+            for ii, blk in enumerate(currblocks):
+                x1, y1, x2, y2 = blk
+                if y2 < row - 2:
+                    indexes.insert(0, ii)
+            
+            # Don't insert tiny separated blocks
+            for idx in indexes:
+                blk = currblocks.pop(idx)
+                x1, y1, x2, y2 = blk
+                area = (x2 - x1)*(y2-y1)
+                if area > 0:
+                    blocks.append(blk)
 
-                            del self.currblocks[ii+1]
-                            break
-                    break
-        else:
-            self.currblocks.append( (colstart, row, colend, row) )
-
-        # Look for blocks we can merge that are adjacent to each other
-        self.currblocks.sort()
-#        merge_these_blocks = []
-#        for ii, blk in enumerate(self.currblocks[1:]):
-#            prevblk = self.currblocks[ii]
-#            x1, y1, x2, y2 = prevblk
-#            for jj, bblk in enumerate(self.currblocks[ii+1:]):
-#                xx1, yy1, xx2, yy2 = bblk
-#                if x1 <= xx1 <= x2 or x1 <= xx2 <= x2:
-#                    merge_these_blocks.append((ii, jj+1))
-#
-#        merge_these_blocks.sort(reverse=True)
-#        for ij in merge_these_blocks:
-#            import pdb; pdb.set_trace()
-#            i, j  = ij
-#            blk2 = self.currblocks.pop(j)
-#            blk1 = self.currblocks.pop(i)
-#            x1, y1, x2, y2 = blk1
-#            xx1, yy1, xx2, yy2 = blk2
-#            newblock = (x1, y1, xx2, y2)
-#            self.currblocks.append(newblock)
-#
-#
-
-        # Look for blocks that have become separated from all other blocks
-        indexes = []
-        for ii, blk in enumerate(self.currblocks):
-            x1, y1, x2, y2 = blk
-            if y2 < row - 2:
-                import pdb; pdb.set_trace()
-                indexes.insert(0, ii)
-        
-        # Don't insert tiny separated blocks
-        for idx in indexes:
-            blk = self.currblocks.pop(idx)
-            x1, y1, x2, y2 = blk
-            area = (x2 - x1)*(y2-y1)
-            if area > 0:
-                self.blocks.append(blk)
-
+    return blocks
 
 
-im = Image.open('chapter2.png').convert("L")
-im2 = Image.new('RGB', im.size, color='lightblue')
+starttime = process_time()
+
+im = Image.open('GriffithsQM-Images/Gr-Images-000.png').convert("L")
+im2 = Image.new('RGB', im.size, color='white')
 draw = ImageDraw.Draw(im2)
 print(im.format, im.size, im.mode)
 width, height = im.size
 data = im.getdata()
 
-WHITE=255
+raster_data = data_to_raster(data, *im.size)
+for y, segments in raster_data:
+    for x1, x2 in segments:
+        draw.line([(x1, y), (x2, y)], fill='black', width=1)
 
+bxs = find_boxes(raster_data)
 
-cursorx = None
-cursorstart = None
-cursory = None
-rowdata = []
+for x1, y1, x2, y2 in bxs:
+    newxy = (x1-1, y1-1, x2+1, y2+1)
+    draw.rectangle(newxy, outline='red', width=2)
 
-# blocks are assumed to be separated by vertical lines of white space
-blocks = Blocks()
-
-
-import pdb; pdb.set_trace()
-for ii in range(len(data)):
-    pixel = data[ii]
-    if pixel == WHITE:
-        if cursorstart is not None:
-            row = (cursory, cursorstart, cursorx)
-            #print (row)
-            blocks.insert_row(*row)
-            draw.line([(cursorstart, cursory), (cursorx, cursory)], fill='black', width=1)
-            #print (row)
-            rowdata.append(row) 
-            cursorstart = None
-    else: #if pixel != WHITE:
-        cursorx = ii % width
-        cursory = ii // width
-        if cursorstart is None:
-            cursorstart = cursorx
-
-blocks.flush()
-cnt = 0
-print ('**********')
-for xy in blocks.blocks:
-    print (xy)
-    draw.rectangle(xy, outline='red', width=1)
-print (len(data), width, height)
 im2.save('output.png')
+
+endtime = process_time()
+
+print ("Process time taken = {:.4f}".format(endtime - starttime))
