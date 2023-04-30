@@ -5,6 +5,11 @@ from time import process_time
 import os
 
 def data_to_raster(data, width, height):
+    """ Convert image bitmap greyscale data into horizontal line segments 
+    specifying start row and beginning and end columns.  This is to encode
+    everything on the page, such as fonts, images, as made up of horizontal
+    line segments stacked on top of each other"""
+
     WHITE=255
     cursorx = None
     cursorstart = None
@@ -23,11 +28,6 @@ def data_to_raster(data, width, height):
                 else:
                     rowdata.append((cursorstart, cursorx))
                 curry = cursory
-                #blocks.insert_row(*row)
-                # Draw the actual lines making up the original text
-                # so we are basically just copying
-
-                #draw.line([(cursorstart, cursory), (cursorx, cursory)], fill='black', width=1)
                 cursorstart = None
         else: #if pixel != WHITE:
             cursorx = ii % width
@@ -35,14 +35,14 @@ def data_to_raster(data, width, height):
             if cursorstart is None:
                 cursorstart = cursorx
 
+
     rows.append((cursory, rowdata))
     return rows
 
 def find_boxes(raster_data):
+    """ find minimal boxes in the raster data that encloses individual fonts
+    and images or mathematical equations"""
     changeitems = []
-    #print (self.blocks)
-    #print (self.currblocks)
-    #print (row, colstart, colend)
 
     currblocks = []
     blocks = []
@@ -57,8 +57,13 @@ def find_boxes(raster_data):
             for ii, blk in enumerate(currblocks):
                 x1, y1, x2, y2 = blk
                 if row in [y2, y2+1]: # on same line or immediately following line
+                    # check if the raster data immediately following pixel line
+                    # overlaps with the raster data of the current pixel line.
+                    # This is to check if stacked lines are forming a font character
+                    # or image or something else
                     if x1-1 <= colstart <= x2+1 or x1-1 <= colend <= x2+1 or  \
                             colstart <= x1 <= x2 <= colend:
+                        # If so enlarge the box so that it still encloses it
                         if colstart < x1:
                             nx1 = colstart
                         else:
@@ -71,13 +76,14 @@ def find_boxes(raster_data):
                         newitem = ( nx1, y1, nx2, row)
                         found_blk = ii
                         currblocks[ii] = newitem
-                        # Let's see if merging is possible
-                        #
-                        #import pdb; pdb.set_trace()
+
+                        # Let's see if merging blocks to the right of it 
+                        # is possible
                         if ii < len(currblocks) - 1:
                             for jj in range(len(currblocks)-1,ii,-1):
                                 nxtblk = currblocks[jj]
                                 nbx1, nby1, nbx2, nby2 = nxtblk
+                                # Does it overlap the next block?
                                 if nbx1-1 <= colstart <= nbx2+1 or nbx1-1 <= colend <= nbx2+1 or  \
                                 colstart <= nbx1 <= nbx2 <= colend:
                                     # extend the beginning y position of box to
@@ -102,7 +108,8 @@ def find_boxes(raster_data):
                 if y2 < row - 2:
                     indexes.insert(0, ii)
             
-            # Don't insert tiny separated blocks
+            # Don't insert tiny separated blocks but instead discard them
+            # (They can sometimes be just random noise on the page)
             for idx in indexes:
                 blk = currblocks.pop(idx)
                 x1, y1, x2, y2 = blk
@@ -113,6 +120,9 @@ def find_boxes(raster_data):
     return blocks
 
 def check_merge_rows(rowboxes, settings):
+    """ check to see if the last two rows can be (or should be) merge 
+    together.  For instance multi line paragraph text should be merged."""
+
     inter_row_gap = settings['global']['inter-row-gap-max-pc']
     maximum_row_height_difference = settings['global']['maximum-row-height-difference']
     exclude_rows_less_than = settings['global']['exclude-rows-less-than']
@@ -121,6 +131,7 @@ def check_merge_rows(rowboxes, settings):
     contained_block_count = rowboxes[-1]['block_count']
     old_height= rowboxes[-2]['original_row_height']
     new_height= rowboxes[-1]['original_row_height']
+    # rows should be of a minimum height (to avoid noisy data)
     if abs(new_height - old_height) <= maximum_row_height_difference:
         lymax = rowboxes[-2]['ymax']
         lymin = rowboxes[-2]['ymin']
@@ -131,7 +142,10 @@ def check_merge_rows(rowboxes, settings):
         xmax = rowboxes[-1]['xmax']
         xmin = rowboxes[-1]['xmin']
         numrows = rowboxes[-1]['number_rows'] + 1
+        # make sure the rows are reasonably close together to form a
+        # paragraph
         if lymax + old_height * inter_row_gap >= ymin:
+            # If so then perform the  merge
             thisbox = { 'block_count': last_blk_count + contained_block_count,
               'number_rows': numrows,
               'xmin': min(lxmin, xmin),
@@ -140,17 +154,17 @@ def check_merge_rows(rowboxes, settings):
               'ymax': ymax,
               'original_row_height': ymax -  ymin + 1 
              }
-            #print ('****', thisbox)
             del rowboxes[-2:]
             rowboxes.append(thisbox)
 
-def generate_row_boxes(settings):
+def generate_row_boxes(boxes, settings):
+    """ Turn character boxes into row boxes """
     exclude_rows_less_than = settings['global']['exclude-rows-less-than']
     ymin = ymax = xmin = xmax = None
     rowboxes = []
     contained_block_count = 0
 
-    for bx in bxs:
+    for bx in boxes:
         x1, y1, x2, y2 = bx
         #draw.rectangle(bx, outline='red', width=2)
         contained_block_count += 1
@@ -169,7 +183,6 @@ def generate_row_boxes(settings):
                 ymin = y1
                 ymax = y2
                 continue
-            #print (thisbox)
             rowboxes.append(thisbox)
             if len(rowboxes) >= 2:
                 check_merge_rows(rowboxes, settings)
@@ -230,7 +243,7 @@ bxs = find_boxes(raster_data)
 bxs.sort(key=lambda x: (x[1], x[0], x[3], x[2])) 
 
 # convert those boxes into even bigger boxes spanning multiple rows
-rowboxes =  generate_row_boxes(settings)
+rowboxes =  generate_row_boxes(bxs, settings)
 
 # finally draw out the boxes
 for box in rowboxes:
