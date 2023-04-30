@@ -1,5 +1,5 @@
 from PIL import Image, ImageDraw
-from numba import njit
+#from numba import njit
 import toml
 from time import process_time
 import os
