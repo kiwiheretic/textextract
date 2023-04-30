@@ -112,6 +112,97 @@ def find_boxes(raster_data):
 
     return blocks
 
+def check_merge_rows(rowboxes, settings):
+    inter_row_gap = settings['global']['inter-row-gap-max-pc']
+    maximum_row_height_difference = settings['global']['maximum-row-height-difference']
+    exclude_rows_less_than = settings['global']['exclude-rows-less-than']
+
+    last_blk_count = rowboxes[-2]['block_count']
+    contained_block_count = rowboxes[-1]['block_count']
+    old_height= rowboxes[-2]['original_row_height']
+    new_height= rowboxes[-1]['original_row_height']
+    if abs(new_height - old_height) <= maximum_row_height_difference:
+        lymax = rowboxes[-2]['ymax']
+        lymin = rowboxes[-2]['ymin']
+        lxmax = rowboxes[-2]['xmax']
+        lxmin = rowboxes[-2]['xmin']
+        ymax = rowboxes[-1]['ymax']
+        ymin = rowboxes[-1]['ymin']
+        xmax = rowboxes[-1]['xmax']
+        xmin = rowboxes[-1]['xmin']
+        numrows = rowboxes[-1]['number_rows'] + 1
+        if lymax + old_height * inter_row_gap >= ymin:
+            thisbox = { 'block_count': last_blk_count + contained_block_count,
+              'number_rows': numrows,
+              'xmin': min(lxmin, xmin),
+              'ymin': lymin,
+              'xmax': max(lxmax, xmax),
+              'ymax': ymax,
+              'original_row_height': ymax -  ymin + 1 
+             }
+            #print ('****', thisbox)
+            del rowboxes[-2:]
+            rowboxes.append(thisbox)
+
+def generate_row_boxes(settings):
+    exclude_rows_less_than = settings['global']['exclude-rows-less-than']
+    ymin = ymax = xmin = xmax = None
+    rowboxes = []
+    contained_block_count = 0
+
+    for bx in bxs:
+        x1, y1, x2, y2 = bx
+        #draw.rectangle(bx, outline='red', width=2)
+        contained_block_count += 1
+        if ymax is not None and y1 > ymax:
+            thisbox = { 'block_count': contained_block_count,
+                  'number_rows': 1,
+                  'xmin': xmin,
+                  'ymin': ymin,
+                  'xmax': xmax,
+                  'ymax': ymax,
+                  'original_row_height': ymax - ymin + 1
+                 }
+            if thisbox['original_row_height'] <= exclude_rows_less_than:
+                xmin = x1
+                xmax = x2
+                ymin = y1
+                ymax = y2
+                continue
+            #print (thisbox)
+            rowboxes.append(thisbox)
+            if len(rowboxes) >= 2:
+                check_merge_rows(rowboxes, settings)
+            contained_block_count = 0
+            xmin = x1
+            xmax = x2
+            ymin = y1
+            ymax = y2
+            continue
+
+        if xmin is None or x1 < xmin:
+            xmin = x1
+        if xmax is None or x2 > xmax:
+            xmax = x2
+
+        if ymin is None or y1 < ymin:
+            ymin = y1
+
+        if ymax is None or y2 > ymax:
+            ymax = y2
+    thisbox = { 'block_count': contained_block_count,
+          'number_rows': 1,
+          'xmin': xmin,
+          'ymin': ymin,
+          'xmax': xmax,
+          'ymax': ymax,
+          'original_row_height': ymax - ymin + 1
+         }
+    rowboxes.append(thisbox)
+    print (thisbox)
+    check_merge_rows(rowboxes, settings)
+    return rowboxes
+
 with open("settings.toml", "r") as f:
     settings = toml.load(f)
 
@@ -119,125 +210,29 @@ print (settings)
 
 starttime = process_time()
 
-im = Image.open('GriffithsQM-Images/Griffiths-001.png').convert("L")
+im = Image.open('sample-page.png').convert("L")
 im2 = Image.new('RGB', im.size, color='white')
 draw = ImageDraw.Draw(im2)
 print(im.format, im.size, im.mode)
 width, height = im.size
 data = im.getdata()
 
+# This part copies the "ink" from sample-page.png to output.png
+# line segment by line segment
 raster_data = data_to_raster(data, *im.size)
 for y, segments in raster_data:
     for x1, x2 in segments:
         draw.line([(x1, y), (x2, y)], fill='black', width=1)
 
+# convert the line segmented raster data into boxes around each character
 bxs = find_boxes(raster_data)
 
 bxs.sort(key=lambda x: (x[1], x[0], x[3], x[2])) 
 
-inter_row_gap = settings['global']['inter-row-gap-max-pc']
-maximum_row_height_difference = settings['global']['maximum-row-height-difference']
-exclude_rows_less_than = settings['global']['exclude-rows-less-than']
-#maximum_row_block_spacing = settings['global']['maximum-row-block-spacing']
+# convert those boxes into even bigger boxes spanning multiple rows
+rowboxes =  generate_row_boxes(settings)
 
-#limits = {'xmin': None, 'ymin': None, 'xmax': None, 'ymax': None}
-ymin = ymax = xmin = xmax = None
-rowboxes = []
-contained_block_count = 0
-
-for bx in bxs:
-    x1, y1, x2, y2 = bx
-    #draw.rectangle(bx, outline='red', width=2)
-    contained_block_count += 1
-    if ymax is not None and y1 > ymax:
-        thisbox = { 'block_count': contained_block_count,
-              'number_rows': 1,
-              'xmin': xmin,
-              'ymin': ymin,
-              'xmax': xmax,
-              'ymax': ymax,
-              'original_row_height': ymax - ymin + 1
-             }
-        if thisbox['original_row_height'] <= exclude_rows_less_than:
-            xmin = x1
-            xmax = x2
-            ymin = y1
-            ymax = y2
-            continue
-        print (thisbox)
-        rowboxes.append(thisbox)
-        if len(rowboxes) >= 2:
-            last_blk_count = rowboxes[-2]['block_count']
-            old_height= rowboxes[-2]['original_row_height']
-            new_height= rowboxes[-1]['original_row_height']
-            if abs(new_height - old_height) <= maximum_row_height_difference:
-                lymax = rowboxes[-2]['ymax']
-                lymin = rowboxes[-2]['ymin']
-                lxmax = rowboxes[-2]['xmax']
-                lxmin = rowboxes[-2]['xmin']
-                numrows = rowboxes[-1]['number_rows'] + 1
-                if lymax + old_height * inter_row_gap >= ymin:
-                    thisbox = { 'block_count': last_blk_count + contained_block_count,
-                      'number_rows': numrows,
-                      'xmin': min(lxmin, xmin),
-                      'ymin': lymin,
-                      'xmax': max(lxmax, xmax),
-                      'ymax': ymax,
-                      'original_row_height': ymax -  ymin + 1 
-                     }
-                    print ('****', thisbox)
-                    del rowboxes[-2:]
-                    rowboxes.append(thisbox)
-        contained_block_count = 0
-        xmin = x1
-        xmax = x2
-        ymin = y1
-        ymax = y2
-        continue
-
-    if xmin is None or x1 < xmin:
-        xmin = x1
-    if xmax is None or x2 > xmax:
-        xmax = x2
-
-    if ymin is None or y1 < ymin:
-        ymin = y1
-
-    if ymax is None or y2 > ymax:
-        ymax = y2
-thisbox = { 'block_count': contained_block_count,
-      'number_rows': 1,
-      'xmin': xmin,
-      'ymin': ymin,
-      'xmax': xmax,
-      'ymax': ymax,
-      'original_row_height': ymax - ymin + 1
-     }
-rowboxes.append(thisbox)
-print (thisbox)
-last_blk_count = rowboxes[-2]['block_count']
-old_height= rowboxes[-2]['original_row_height']
-new_height= rowboxes[-1]['original_row_height']
-
-if abs(new_height - old_height) <= maximum_row_height_difference:
-    height= rowboxes[-2]['original_row_height']
-    lymax = rowboxes[-2]['ymax']
-    lymin = rowboxes[-2]['ymin']
-    lxmax = rowboxes[-2]['xmax']
-    lxmin = rowboxes[-2]['xmin']
-    numrows = rowboxes[-2]['number_rows'] + 1
-    if lymax + old_height * inter_row_gap >= ymin:
-        thisbox = { 'block_count': last_blk_count + contained_block_count,
-          'number_rows': numrows,
-          'xmin': min(lxmin, xmin),
-          'ymin': lymin,
-          'xmax': max(lxmax, xmax),
-          'ymax': ymax,
-          'original_row_height': height
-         }
-        del rowboxes[-2:]
-        rowboxes.append(thisbox)
-
+# finally draw out the boxes
 for box in rowboxes:
     x1 = box['xmin']
     x2 = box['xmax']

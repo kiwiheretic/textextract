@@ -1,0 +1,13 @@
+[global]
+
+# inter-row-gap-max-pc is the maximmum % row spacing two rows can have and 
+# still be considered part of the same visual block.
+inter-row-gap-max-pc = 1.3
+
+# maximum-row-height-difference is the maximum height difference in a row
+# before it can be considered a different row type.
+maximum-row-height-difference = 25
+
+# exclude-rows-less-than is if there is a tiny height row (perhaps just noise)
+# then just exclude that row from processing
+exclude-rows-less-than = 4
