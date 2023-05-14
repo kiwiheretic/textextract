@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+</head>
+<style>
+  div.container {
+    display: flex;
+    justify-content: center;
+  }
+  #div-canvas {
+    max-width: 90vw;
+    height: 500px;
+    overflow: scroll;
+    border: 1px solid black;
+  }
+</style>
+<body>
+
+  <div class="container">
+    <div id="div-canvas">
+      <canvas id="my-canvas"></canvas>
+    </div>
+  </div>
+  <script>
+    const myCanvas = document.getElementById('my-canvas'); 
+    const context = myCanvas.getContext('2d');
+  </script>
+  <script src="./js.js"></script>
+  <script>
+    const img = new Image();        
+    img.src = './sample-page.png';        
+    img.onload = () => { 
+      myCanvas.height = img.height;
+      myCanvas.width = img.width;
+      context.drawImage(img, 0, 0); 
+      // Read the pixel data of the canvas
+      const imageData = context.getImageData(0, 0, myCanvas.width, myCanvas.height);
+      const data = imageData.data;
+      let raster = data_to_raster(data, img.width, img.height);
+      let boxes = find_boxes(raster); 
+      boxes.forEach( function(item) {
+        let [x1, y1, x2, y2] = item;
+        context.strokeStyle = 'red';
+        context.lineWidth=3;
+        context.strokeRect(x1-3, y1-3, x2-x1+3, y2-y1+3);
+      });
+      console.log(data.length);
+      console.log(`Image Width ${img.width} and ${img.height}`);
+    };
+  </script>
+</body>
+</html>
