@@ -11,3 +11,7 @@ maximum-row-height-difference = 25
 # exclude-rows-less-than is if there is a tiny height row (perhaps just noise)
 # then just exclude that row from processing
 exclude-rows-less-than = 4
+
+# The minimum horizontal break in determining whether a horizontal row shoul be
+# split or not
+minimum_horizontal_break = 5

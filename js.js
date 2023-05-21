@@ -155,3 +155,136 @@ function find_boxes(raster_data) {
     blocks = blocks.concat(currblocks);
     return blocks;
 }
+
+class RowBoxes {
+  constructor (boxes, settings) {
+    this.boxes = boxes;
+    this.settings = settings;
+    this.ii = 0;
+    this.rowboxes = [];
+    this.containedBlockCount = 0;
+    this.ymin = undefined;
+    this.ymax = undefined;
+    this.xmin = undefined;
+    this.xmax = undefined;
+  }
+  check_merge_rows() {
+  /* check to see if the last two rows can be (or should be) merged together.
+     For instance, multi-line paragraph text should be merged. */
+
+    const inter_row_gap = 1.3;
+    const maximum_row_height_difference = 25;
+    const exclude_rows_less_than = 4;
+
+    if (this.rowboxes.length < 2) return;
+    const last_blk_count = this.rowboxes[this.rowboxes.length - 2]['block_count'];
+    const contained_block_count = this.rowboxes[this.rowboxes.length - 1]['block_count'];
+    const old_height = this.rowboxes[this.rowboxes.length - 2]['original_row_height'];
+    const new_height = this.rowboxes[this.rowboxes.length - 1]['original_row_height'];
+
+    // Rows should be of minimum height (to avoid noisy data)
+    if (Math.abs(new_height - old_height) <= maximum_row_height_difference) {
+      const lymax = this.rowboxes[this.rowboxes.length - 2]['ymax'];
+      const lymin = this.rowboxes[this.rowboxes.length - 2]['ymin'];
+      const lxmax = this.rowboxes[this.rowboxes.length - 2]['xmax'];
+      const lxmin = this.rowboxes[this.rowboxes.length - 2]['xmin'];
+      const ymax = this.rowboxes[this.rowboxes.length - 1]['ymax'];
+      const ymin = this.rowboxes[this.rowboxes.length - 1]['ymin'];
+      const xmax = this.rowboxes[this.rowboxes.length - 1]['xmax'];
+      const xmin = this.rowboxes[this.rowboxes.length - 1]['xmin'];
+      const numrows = this.rowboxes[this.rowboxes.length - 1]['number_rows'] + 1;
+
+      // Make sure the rows are reasonably close together to form a paragraph
+      if (lymax + old_height * inter_row_gap >= ymin) {
+        // If so, then perform the merge
+        const thisbox = {
+          block_count: last_blk_count + contained_block_count,
+          number_rows: numrows,
+          xmin: Math.min(lxmin, xmin),
+          ymin: lymin,
+          xmax: Math.max(lxmax, xmax),
+          ymax: ymax,
+          original_row_height: ymax - ymin + 1,
+        };
+
+        this.rowboxes.splice(this.rowboxes.length - 2, 2, thisbox);
+      }
+    }
+  } // check_merge_rows
+  generateRowBoxes() {
+    // Turn character boxes into row boxes
+    const excludeRowsLessThan = 5; //settings['global']['exclude-rows-less-than'];
+
+    let bx = this.boxes[this.ii++];
+    const [x1, y1, x2, y2] = bx;
+    // draw.rectangle(bx, outline='red', width=2);
+    this.containedBlockCount += 1;
+
+    if (this.ymax !== undefined && y1 > this.ymax) {
+      const thisbox = {
+        block_count: this.containedBlockCount,
+        number_rows: 1,
+        xmin: this.xmin,
+        ymin: this.ymin,
+        xmax: this.xmax,
+        ymax: this.ymax,
+        original_row_height: this.ymax - ymin + 1,
+      };
+
+      if (thisbox['original_row_height'] <= excludeRowsLessThan) {
+        this.xmin = x1;
+        this.xmax = x2;
+        this.ymin = y1;
+        this.ymax = y2;
+        return null;
+      }
+
+      this.rowboxes.push(thisbox);
+
+      if (this.rowboxes.length >= 2) {
+        this.check_merge_rows();
+      }
+
+      this.containedBlockCount = 0;
+      this.xmin = x1;
+      this.xmax = x2;
+      this.ymin = y1;
+      this.ymax = y2;
+      return null;
+    }
+
+    if (this.xmin === undefined || x1 < this.xmin) {
+      this.xmin = x1;
+    }
+
+    if (this.xmax === undefined || x2 > this.xmax) {
+      this.xmax = x2;
+    }
+
+    if (this.ymin === undefined || y1 < this.ymin) {
+      this.ymin = y1;
+    }
+
+    if (this.ymax === undefined || y2 > this.ymax) {
+      this.ymax = y2;
+    }
+
+    const thisbox = {
+      block_count: this.containedBlockCount,
+      number_rows: 1,
+      xmin: this.xmin,
+      ymin: this.ymin,
+      xmax: this.xmax,
+      ymax: this.ymax,
+      original_row_height: this.ymax - this.ymin + 1,
+    };
+
+    this.rowboxes.push(thisbox);
+    this.check_merge_rows();
+    return thisbox;
+  } // generateRowBoxes
+  click() {
+    let box = this.generateRowBoxes();
+    return box;
+  }
+}

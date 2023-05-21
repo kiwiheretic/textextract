@@ -8,36 +8,64 @@
   div.container {
     display: flex;
     justify-content: center;
+    flex-direction: column;
   }
   #div-canvas {
     max-width: 90vw;
     height: 500px;
+    margin: auto;
     overflow: scroll;
     border: 1px solid black;
   }
+  button#step-btn {
+    width: 300px;
+    margin: 20px;
+    font-size: 24px;
+    align-self: center;
+  }
 </style>
 <body>
-
+  
   <div class="container">
+    <button id="step-btn">Step</button>
     <div id="div-canvas">
       <canvas id="my-canvas"></canvas>
     </div>
   </div>
   <script>
     const myCanvas = document.getElementById('my-canvas'); 
-    const context = myCanvas.getContext('2d');
+    const context = myCanvas.getContext('2d',{willReadFrequently: true});
   </script>
   <script src="./js.js"></script>
   <script>
     const img = new Image();        
     img.src = './sample-page.png';        
     img.onload = () => { 
+
+      function compare(obj1, obj2) {
+        let [x1a, y1a, x1b, y1b] = obj1;
+        let [x2a, y2a, x2b, y2b] = obj2;
+        if (y1a < y2b) {
+          return -1;
+        } else if (y1b > y2a) {
+          return 1;
+        } else {
+          if (x1a < x2a) {
+            return -1;
+          } else if (x1a > x2a) {
+            return 1;
+          } else {
+            return 0;
+          }
+        }
+
+      }
       myCanvas.height = img.height;
       myCanvas.width = img.width;
       context.drawImage(img, 0, 0); 
       // Read the pixel data of the canvas
-      const imageData = context.getImageData(0, 0, myCanvas.width, myCanvas.height);
-      const data = imageData.data;
+      const imageData1 = context.getImageData(0, 0, myCanvas.width, myCanvas.height);
+      const data = imageData1.data;
       let raster = data_to_raster(data, img.width, img.height);
       let boxes = find_boxes(raster); 
       boxes.forEach( function(item) {
@@ -46,9 +74,35 @@
         context.lineWidth=3;
         context.strokeRect(x1-3, y1-3, x2-x1+3, y2-y1+3);
       });
+      boxes.sort(compare);
       console.log(data.length);
       console.log(`Image Width ${img.width} and ${img.height}`);
+      let btn = document.getElementById("step-btn");
+      let rowBoxes = new RowBoxes(boxes, {});
+      let imageData = null;
+      let x,y,width,height;
+      btn.addEventListener("click", function() {
+        //let settings = {willReadFrequently: true};
+
+        if (imageData !== null) {
+          [x,y] = [imageData.x, imageData.y];
+          context.putImageData(imageData.image, x,y);
+        }
+        let box = rowBoxes.click();
+        let [x1, y1, x2, y2] = [box.xmin, box.ymin, box.xmax, box.ymax];
+        x = x1 - 3;
+        y = y1 - 3;
+        width = x2 - x1 + 6;
+        height = y2 - y1 + 6;
+        context.strokeStyle = 'blue';
+        context.lineWidth=3;
+        context.strokeRect(x, y, width, height);
+        imageData = {x:x, y:y, width: width, height: height };
+        imageData['image'] = context.getImageData(x,y,width, height);
+      });
     };
+    
+
   </script>
 </body>
 </html>
