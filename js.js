@@ -46,7 +46,6 @@ function data_to_raster(data, width, height) {
 
 function find_boxes(raster_data) {
     const WHITE = 255;
-    let changeitems = [];
 
     let currblocks = [];
     let blocks = [];
@@ -242,7 +241,7 @@ class RowBoxes {
       this.rowboxes.push(thisbox);
 
       if (this.rowboxes.length >= 2) {
-        this.check_merge_rows();
+        //this.check_merge_rows();
       }
 
       this.containedBlockCount = 0;
@@ -280,11 +279,11 @@ class RowBoxes {
     };
 
     this.rowboxes.push(thisbox);
-    this.check_merge_rows();
-    return thisbox;
+    //this.check_merge_rows();
+    return [bx, thisbox];
   } // generateRowBoxes
   click() {
-    let box = this.generateRowBoxes();
-    return box;
+    let [box1, box2] = this.generateRowBoxes();
+    return [box1, box2];
   }
 }
