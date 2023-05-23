@@ -155,6 +155,56 @@ function find_boxes(raster_data) {
     return blocks;
 }
 
+function get_row_sorted(boxes) {
+  function comparey(obj1, obj2) {
+    let [x1a, y1a, x1b, y1b] = obj1;
+    let [x2a, y2a, x2b, y2b] = obj2;
+    if (y1a < y2a) {
+      return -1;
+    } else if (y1a > y2a) {
+      return 1;
+    } else {
+      return 0;
+    }
+
+  } // function
+  function comparex(obj1, obj2) {
+    let [x1a, y1a, x1b, y1b] = obj1;
+    let [x2a, y2a, x2b, y2b] = obj2;
+    if (x1a < x2a) {
+      return -1;
+    } else if (x1a > x2a) {
+      return 1;
+    } else {
+      return 0;
+    }
+
+  } // function
+
+  boxes.sort(comparey);
+  let double_sorted = [];
+  let bottom_line = null;
+  let sorted_boxes = [];
+  boxes.forEach( function(item) {
+    let [x1, y1, x2, y2] = item;
+    if (bottom_line === null || y2+3 > bottom_line) {
+      if (bottom_line !== null && y1 > bottom_line + 2) {
+        sorted_boxes.sort(comparex);
+        double_sorted.push([...sorted_boxes]);
+        sorted_boxes = [];
+      }
+      if (y2 > bottom_line ) {
+        bottom_line = y2;
+      }
+    }
+
+    sorted_boxes.push(item);
+  });
+  sorted_boxes.sort(comparex);
+  double_sorted.push([...sorted_boxes]);
+  return double_sorted;
+}
+
 class RowBoxes {
   constructor (boxes, settings) {
     this.boxes = boxes;
