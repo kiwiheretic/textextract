@@ -35,6 +35,7 @@
     <div class="button-container">
       <button id="step-btn">Step</button>
       <button id="auto-btn">Auto Step</button>
+      <button id="clear-btn">Clear</button>
     </div>
     <div id="div-canvas">
       <canvas id="my-canvas"></canvas>
@@ -79,14 +80,24 @@
       console.log(`Image Width ${img.width} and ${img.height}`);
       const stepbtn = document.getElementById("step-btn");
       const autobtn = document.getElementById("auto-btn");
+      const clearbtn = document.getElementById("clear-btn");
 
 
 
-      stepboxes = new StepBoxes(context, row_sorted, canvas_scale);
+      let timer = null;
+      let stepboxes = new StepBoxes(context, row_sorted, canvas_scale);
+      clearbtn.addEventListener("click", function() {
+        context.drawImage(img, 0, 0, canvas_width, canvas_height );
+        stepboxes = new StepBoxes(context, row_sorted, canvas_scale);
+        if (timer) {
+          clearInterval(timer);
+          autobtn.textContent = "Auto Step";
+          timer = null;
+        }
+      });
       stepbtn.addEventListener("click", function() {
         stepboxes.step();
       });
-      let timer = null;
       autobtn.addEventListener("click", function() {
         if (timer) {
           clearInterval(timer);
