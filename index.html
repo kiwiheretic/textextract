@@ -15,22 +15,27 @@
   }
   #div-canvas {
     width: 90vw;
-    height: 500px;
+    height: 400px;
     margin: auto;
     overflow: scroll;
     border: 1px solid black;
   }
-  button#step-btn {
+  div.button-container {
+    align-self: center;
+  }
+  button{
     width: 300px;
     margin: 20px;
     font-size: 24px;
-    align-self: center;
   }
 </style>
 <body>
   
   <div class="container">
-    <button id="step-btn">Step</button>
+    <div class="button-container">
+      <button id="step-btn">Step</button>
+      <button id="auto-btn">Auto Step</button>
+    </div>
     <div id="div-canvas">
       <canvas id="my-canvas"></canvas>
     </div>
@@ -72,44 +77,33 @@
       let row_sorted = get_row_sorted(boxes);
       console.log(data.length);
       console.log(`Image Width ${img.width} and ${img.height}`);
-      let btn = document.getElementById("step-btn");
-      //rowBoxes = new RowBoxes(boxes, {});
-      let imageData = null;
-      let x,y,width,height;
-      let majorIdx = 0;
-      let minorIdx = 0;
-      btn.addEventListener("click", function() {
-        //let settings = {willReadFrequently: true};
-        let [x1, y1, x2, y2] = row_sorted[majorIdx][minorIdx];
+      const stepbtn = document.getElementById("step-btn");
+      const autobtn = document.getElementById("auto-btn");
 
-        if (imageData !== null) {
-          [x,y] = [imageData.x, imageData.y];
-          //context.putImageData(imageData.image, x-2,y-2);
+
+
+      stepboxes = new StepBoxes(context, row_sorted, canvas_scale);
+      stepbtn.addEventListener("click", function() {
+        stepboxes.step();
+      });
+      let timer = null;
+      autobtn.addEventListener("click", function() {
+        if (timer) {
+          clearInterval(timer);
+          autobtn.textContent = "Auto Step";
+          timer = null;
+        } else {
+          timer = setInterval(()=>{ 
+            let result = stepboxes.step() 
+            if (result === null) {
+              clearInterval(timer);
+              autobtn.textContent = "Auto Step";
+              timer = null;
+              console.log("Cancelling timer");
+            }
+          }, 100);
+          autobtn.textContent = "Stop Auto Step";
         }
-        //let [smallBox, largeBox] = rowBoxes.click();
-        //console.log(smallBox);
-        // [x1, y1, x2, y2] = smallBox;
-        context.strokeStyle = 'red';
-        context.lineWidth=2;
-        context.strokeRect((x1-3)/canvas_scale, (y1-3)/canvas_scale, (x2-x1+3)/canvas_scale, (y2-y1+3)/canvas_scale);
-        //[x1, y1, x2, y2] = [largeBox.xmin, largeBox.ymin, largeBox.xmax, largeBox.ymax];
-        x = x1 - 3;
-        y = y1 - 3;
-        width = x2 - x1 + 6;
-        height = y2 - y1 + 6;
-        imageData = {x:x, y:y, width: width, height: height };
-        imageData['image'] = context.getImageData(x-2,y-2,width+4, height+4);
-        context.strokeStyle = 'blue';
-        context.lineWidth=3;
-        minorIdx++;
-        if (minorIdx >= row_sorted[majorIdx].length) {
-          majorIdx++;
-          minorIdx = 0;
-          if (majorIdx >= row_sorted.length) {
-            return null;
-          }
-        }
-        //context.strokeRect(x, y, width, height);
       });
     };
     
