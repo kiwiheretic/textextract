@@ -10,8 +10,11 @@
     justify-content: center;
     flex-direction: column;
   }
+  canvas#my-canvas {
+    width: 100%;
+  }
   #div-canvas {
-    max-width: 90vw;
+    width: 90vw;
     height: 500px;
     margin: auto;
     overflow: scroll;
@@ -41,13 +44,29 @@
     const img = new Image();        
     img.src = './sample-page.png';        
     img.onload = () => { 
+      // Put the image on to a virtual canvas matching the original size.
+      // This is to work with the canvas data at maximum resolution while still
+      // being able to zoom out the canvas for larger image widths.
 
-      myCanvas.height = img.height;
-      myCanvas.width = img.width;
-      context.drawImage(img, 0, 0); 
+      const canvas2 = document.createElement('canvas');
+      const context2 = canvas2.getContext('2d');
+      canvas2.width = img.width;
+      canvas2.height = img.height;
+      context2.drawImage(img, 0, 0, img.width, img.height );
+      const myData = context2.getImageData(0, 0, img.width, img.height);
+
+      const div_canvas = document.getElementById("div-canvas");
+
+      const canvas_scale = img.width / div_canvas.clientWidth;
+
+      const canvas_height = img.height / canvas_scale;
+      const canvas_width = img.width / canvas_scale;
+      myCanvas.height = canvas_height; //img.height;
+      myCanvas.width = canvas_width; //img.width;
+      context.drawImage(img, 0, 0, canvas_width, canvas_height );
       // Read the pixel data of the canvas
-      const imageData1 = context.getImageData(0, 0, myCanvas.width, myCanvas.height);
-      const data = imageData1.data;
+      //const imageData1 = context.getImageData(0, 0, img.width, img.height);
+      const data = myData.data;
       let raster = data_to_raster(data, img.width, img.height);
       let boxes = find_boxes(raster); 
       let row_sorted = get_row_sorted(boxes);
@@ -71,8 +90,8 @@
         //console.log(smallBox);
         // [x1, y1, x2, y2] = smallBox;
         context.strokeStyle = 'red';
-        context.lineWidth=3;
-        context.strokeRect(x1-3, y1-3, x2-x1+3, y2-y1+3);
+        context.lineWidth=2;
+        context.strokeRect((x1-3)/canvas_scale, (y1-3)/canvas_scale, (x2-x1+3)/canvas_scale, (y2-y1+3)/canvas_scale);
         //[x1, y1, x2, y2] = [largeBox.xmin, largeBox.ymin, largeBox.xmax, largeBox.ymax];
         x = x1 - 3;
         y = y1 - 3;
