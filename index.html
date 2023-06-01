@@ -76,12 +76,10 @@
       let raster = data_to_raster(data, img.width, img.height);
       let boxes = find_boxes(raster); 
       let row_sorted = get_row_sorted(boxes);
-      console.log(data.length);
       console.log(`Image Width ${img.width} and ${img.height}`);
       const stepbtn = document.getElementById("step-btn");
       const autobtn = document.getElementById("auto-btn");
       const clearbtn = document.getElementById("clear-btn");
-
 
 
       let timer = null;
@@ -106,11 +104,18 @@
         } else {
           timer = setInterval(()=>{ 
             let result = stepboxes.step() 
-            if (result === null) {
+            if (stepboxes.done) {
               clearInterval(timer);
               autobtn.textContent = "Auto Step";
               timer = null;
               console.log("Cancelling timer");
+            } else if (Array.isArray(result) && result.length > 0) {
+              let sortedElements = result.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
+              console.log(sortedElements);
+              let middleElementIdx = Math.trunc(sortedElements.length / 2);
+              let medianElementSpacing = sortedElements[middleElementIdx];
+              console.log(`Median spacing = ${medianElementSpacing}`);
+
             }
           }, 100);
           autobtn.textContent = "Stop Auto Step";

@@ -208,7 +208,6 @@ function get_row_sorted(boxes) {
 class StepBoxes {
   constructor (ctx, rowdata, scale) {
       this.ctx = ctx;
-      this.imageData = null;
       this.x = null;
       this.y = null;
       this.width = null;
@@ -217,35 +216,89 @@ class StepBoxes {
       this.minorIdx = 0;
       this.rowdata = rowdata;
       this.scale = scale
+      this.row_dimensions = null;
+      this.characters = [];
+      this.lastvalues = null;
+      this.done = false;
   }
   step() {
     let [x1, y1, x2, y2] = this.rowdata[this.majorIdx][this.minorIdx];
-    let x,y;
-    let width, height;
+    let width = x2 - x1 + 1;
+    let height = y2 - y1 + 1;
+    let spacingLeft, spacingRight;
+    let x1next, x2prev;
 
-    if (this.imageData !== null) {
-      [x,y] = [this.imageData.x, this.imageData.y];
+    if (this.done) return this;
+
+    if (this.minorIdx > 0) {
+      x2prev = this.rowdata[this.majorIdx][this.minorIdx-1][2];
+      spacingLeft = x1 - x2prev;
+    } else {
+      spacingLeft = null;
     }
-    this.ctx.strokeStyle = 'red';
+    if (this.minorIdx < this.rowdata[this.majorIdx].length - 1 ) {
+      x1next = this.rowdata[this.majorIdx][this.minorIdx+1][0];
+      spacingRight = x1next - x2;
+    } else {
+      spacingRight = null;
+    }
+
+
+    this.characters.push( {
+      x1: x1,
+      y1: y1,
+      x2: x2,
+      y2: y2,
+      width: width,
+      height: height, 
+      spacingLeft: spacingLeft,
+      spacingRight: spacingRight,
+      area: width*height} )
+
+
+    if (this.row_dimensions === null) {
+      this.row_dimensions = {x1:x1, y1:y1, x2:x2, y2:y2};
+    } else {
+      if (y1 < this.row_dimensions.y1) {
+        this.row_dimensions.y1 = y1;
+      }
+      if (y2 > this.row_dimensions.y2) {
+        this.row_dimensions.y2 = y2;
+      }
+      this.row_dimensions.x2 = x2;
+    }
+    this.ctx.strokeStyle = 'orange';
     this.ctx.lineWidth=2;
     this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (x2-x1+3)/this.scale, (y2-y1+3)/this.scale);
 
-    x = x1 - 3;
-    y = y1 - 3;
+    let x = x1 - 3;
+    let y = y1 - 3;
     width = x2 - x1 + 6;
     height = y2 - y1 + 6;
-    this.imageData = {x:x, y:y, width: width, height: height };
-    this.imageData['image'] = this.ctx.getImageData(x-2,y-2,width+4, height+4);
     this.ctx.strokeStyle = 'blue';
     this.ctx.lineWidth=3;
     this.minorIdx++;
     if (this.minorIdx >= this.rowdata[this.majorIdx].length) {
+      this.ctx.strokeStyle = '#a0a0f0';
+      this.ctx.lineWidth=2;
+      x = (this.row_dimensions.x1-2)/this.scale;
+      y = (this.row_dimensions.y1-2)/this.scale;
+      width = (this.row_dimensions.x2 - this.row_dimensions.x1 + 4)/this.scale;
+      height = (this.row_dimensions.y2 - this.row_dimensions.y1 + 4)/this.scale;
+      this.row_dimensions = null;
+      this.ctx.strokeRect(x, y, width, height);
       this.majorIdx++;
       this.minorIdx = 0;
       if (this.majorIdx >= this.rowdata.length) {
-        return null;
+        this.done = true;
+        return this.characters;
+      } else {
+        let characters = this.characters;
+        this.characters = [];
+        return characters;
       }
     }
+    return null;
   }
 }
 
