@@ -206,8 +206,9 @@ function get_row_sorted(boxes) {
 }
 
 class StepBoxes {
-  constructor (ctx, rowdata, scale) {
+  constructor (ctx, srcImg, rowdata, scale) {
       this.ctx = ctx;
+      this.srcImg = srcImg;
       this.x = null;
       this.y = null;
       this.width = null;
@@ -281,12 +282,16 @@ class StepBoxes {
     if (this.minorIdx >= this.rowdata[this.majorIdx].length) {
       this.ctx.strokeStyle = '#a0a0f0';
       this.ctx.lineWidth=2;
-      x = (this.row_dimensions.x1-2)/this.scale;
-      y = (this.row_dimensions.y1-2)/this.scale;
+      let xscale = (this.row_dimensions.x1-2);
+      let yscale = (this.row_dimensions.y1-2)
+      x = (xscale)/this.scale;
+      y = (yscale)/this.scale;
       width = (this.row_dimensions.x2 - this.row_dimensions.x1 + 4)/this.scale;
-      height = (this.row_dimensions.y2 - this.row_dimensions.y1 + 4)/this.scale;
+      let heightscale = (this.row_dimensions.y2 - this.row_dimensions.y1 + 4);
+      height = (heightscale)/this.scale;
       this.row_dimensions = null;
-      this.ctx.strokeRect(x, y, width, height);
+      let [rowY, rowHeight] = [y, height];
+      //this.ctx.strokeRect(x, y, width, height);
       this.majorIdx++;
       this.minorIdx = 0;
       if (this.majorIdx >= this.rowdata.length) {
@@ -294,8 +299,48 @@ class StepBoxes {
         return this.characters;
       } else {
         let characters = this.characters;
+
+        let sortedElements = characters.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
+        console.log(sortedElements);
+        let middleElementIdx = Math.trunc(sortedElements.length / 2);
+        let UpperQuartileIdx = Math.trunc(4*sortedElements.length / 5);
+        let medianElementSpacing = sortedElements[middleElementIdx];
+        let upperQuartileElementSpacing = sortedElements[UpperQuartileIdx];
+        console.log(`Median spacing = ${medianElementSpacing}`);
+        console.log(`Upper quartile spacing = ${upperQuartileElementSpacing}`);
+        let charactersReblocked = [];
+        let allReblocked = [];
+        this.ctx.strokeStyle = 'grey';
+        this.ctx.lineWidth=2;
+        for (let i in characters) {
+          charactersReblocked.push(characters[i]);
+          if (characters[i].spacingRight > 4 * upperQuartileElementSpacing) {
+            let newArray = [...charactersReblocked];
+            allReblocked.push(newArray);
+            charactersReblocked = []
+            let arrLen = newArray.length;
+            xscale = newArray[0].x1;
+            x = xscale / this.scale;
+            let widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
+            width = (widthscale) / this.scale;
+            //height = maxHeight / this.scale;
+            
+            this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
+            this.ctx.strokeRect(x, rowY, width, rowHeight);
+          }
+        }
+        let newArray = [...charactersReblocked];
+        let arrLen = newArray.length;
+        allReblocked.push(newArray);
+        xscale = newArray[0].x1;
+        x = xscale / this.scale;
+        let widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
+        width = (widthscale) / this.scale;
+        this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
+
+        this.ctx.strokeRect(x, rowY, width, rowHeight);
         this.characters = [];
-        return characters;
+        return allReblocked;
       }
     }
     return null;

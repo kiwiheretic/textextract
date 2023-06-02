@@ -83,10 +83,10 @@
 
 
       let timer = null;
-      let stepboxes = new StepBoxes(context, row_sorted, canvas_scale);
+      let stepboxes = new StepBoxes(context, img, row_sorted, canvas_scale);
       clearbtn.addEventListener("click", function() {
         context.drawImage(img, 0, 0, canvas_width, canvas_height );
-        stepboxes = new StepBoxes(context, row_sorted, canvas_scale);
+        stepboxes = new StepBoxes(context, img, row_sorted, canvas_scale);
         if (timer) {
           clearInterval(timer);
           autobtn.textContent = "Auto Step";
@@ -113,8 +113,11 @@
               let sortedElements = result.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
               console.log(sortedElements);
               let middleElementIdx = Math.trunc(sortedElements.length / 2);
+              let UpperQuartileIdx = Math.trunc(3*sortedElements.length / 4);
               let medianElementSpacing = sortedElements[middleElementIdx];
+              let upperQuartileElementSpacing = sortedElements[UpperQuartileIdx];
               console.log(`Median spacing = ${medianElementSpacing}`);
+              console.log(`Upper quartile spacing = ${upperQuartileElementSpacing}`);
 
             }
           }, 100);
