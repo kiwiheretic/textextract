@@ -5,13 +5,13 @@ function data_to_raster(data, width, height) {
     line segments stacked on top of each other */;
     // returns [ currenty, [x1min, x1max],[x2min, x2max],....]
     const WHITE=255;
-    let cursorx = null;
-    let cursorstart = null;
-    let cursory = null;
+    let cursorX = null;
+    let cursorStart = null;
+    let cursorY = null;
 
     let rowdata = [];
     let rows = [];
-    let curry = null;
+    let currY = null;
     for (let ii=0; ii<data.length; ii+=4) {
       const red = data[ii];
       const green = data[ii + 1];
@@ -21,25 +21,25 @@ function data_to_raster(data, width, height) {
       const grayscale = (red + green + blue) / 3;
       let pixel = grayscale;
       if (pixel == WHITE) {
-          if (cursorstart !== null) {
-              if (curry != cursory && curry !== null) {
-                  rows.push([curry, rowdata]);
-                  rowdata = [[cursorstart, cursorx]];
+          if (cursorStart !== null) {
+              if (currY != cursorY && currY !== null) {
+                  rows.push([currY, rowdata]);
+                  rowdata = [[cursorStart, cursorX]];
               } else {
-                  rowdata.push([cursorstart, cursorx]);
+                  rowdata.push([cursorStart, cursorX]);
               }
-              curry = cursory;
-              cursorstart = null;
+              currY = cursorY;
+              cursorStart = null;
           }
       } else { //(pixel != WHITE) 
-          cursorx = Math.floor(ii/4) % width;
-          cursory = Math.floor(ii/4/width); // width
-          if (cursorstart === null) {
-              cursorstart = cursorx;
+          cursorX = Math.floor(ii/4) % width;
+          cursorY = Math.floor(ii/4/width); // width
+          if (cursorStart === null) {
+              cursorStart = cursorX;
           }
       }
     } // end for
-    rows.push([cursory, rowdata]);
+    rows.push([cursorY, rowdata]);
     return rows;
 }
 
@@ -222,12 +222,65 @@ class StepBoxes {
       this.lastvalues = null;
       this.done = false;
   }
+  drawRowBoxes(characters, xs, ys, ws, hs) {
+    let sortedElements = characters.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
+    console.log(sortedElements);
+    let middleElementIdx = Math.trunc(sortedElements.length / 2);
+    let medianElementSpacing = sortedElements[middleElementIdx];
+    let UpperQuartileIdx = Math.trunc(4*sortedElements.length / 5);
+    let delimiterSpacing = sortedElements[UpperQuartileIdx];
+    console.log(`Median spacing = ${medianElementSpacing}`);
+    console.log(`Upper quartile spacing = ${delimiterSpacing}`);
+    let charactersReblocked = [];
+    let allReblocked = [];
+    this.ctx.strokeStyle = 'grey';
+    this.ctx.lineWidth=2;
+    for (let i in characters) {
+      charactersReblocked.push(characters[i]);
+      if (characters[i].spacingRight > 4 * delimiterSpacing) {
+        let newArray = [...charactersReblocked];
+        allReblocked.push(newArray);
+        charactersReblocked = []
+        let arrLen = newArray.length;
+        xs = newArray[0].x1;
+        let x = xs / this.scale;
+        let y = ys / this.scale
+        ws = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
+        
+        let width = (ws) / this.scale;
+        let height = hs / this.scale;
+        
+        this.ctx.drawImage(this.srcImg, xs, ys, ws, hs, x, y, width, height);
+        this.ctx.strokeRect(x, y, width, height);
+      }
+    }
+    let newArray = [...charactersReblocked];
+    let arrLen = newArray.length;
+    allReblocked.push(newArray);
+    xs = newArray[0].x1;
+
+    let x = xs / this.scale;
+    let y = ys / this.scale
+    ws = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
+    
+    let width = (ws) / this.scale;
+    let height = hs / this.scale;
+    ws = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
+    width = (ws) / this.scale;
+    this.ctx.drawImage(this.srcImg, xs, ys, ws, hs, x, y, width, height);
+    this.ctx.strokeRect(x, y, width, height);
+
+    return allReblocked;
+  }
+
   step() {
     let [x1, y1, x2, y2] = this.rowdata[this.majorIdx][this.minorIdx];
     let width = x2 - x1 + 1;
     let height = y2 - y1 + 1;
     let spacingLeft, spacingRight;
     let x1next, x2prev;
+    let xscale, yscale;
+    let heightscale, widthscale;
 
     if (this.done) return this;
 
@@ -282,63 +335,59 @@ class StepBoxes {
     if (this.minorIdx >= this.rowdata[this.majorIdx].length) {
       this.ctx.strokeStyle = '#a0a0f0';
       this.ctx.lineWidth=2;
-      let xscale = (this.row_dimensions.x1-2);
-      let yscale = (this.row_dimensions.y1-2)
+      xscale = (this.row_dimensions.x1-2);
+      yscale = (this.row_dimensions.y1-2)
       x = (xscale)/this.scale;
       y = (yscale)/this.scale;
-      width = (this.row_dimensions.x2 - this.row_dimensions.x1 + 4)/this.scale;
-      let heightscale = (this.row_dimensions.y2 - this.row_dimensions.y1 + 4);
+      widthscale = (this.row_dimensions.x2 - this.row_dimensions.x1 + 4);
+      width = widthscale / this.scale;
+      heightscale = (this.row_dimensions.y2 - this.row_dimensions.y1 + 4);
       height = (heightscale)/this.scale;
       this.row_dimensions = null;
       let [rowY, rowHeight] = [y, height];
-      //this.ctx.strokeRect(x, y, width, height);
       this.majorIdx++;
       this.minorIdx = 0;
       if (this.majorIdx >= this.rowdata.length) {
         this.done = true;
+        let allReblocked = this.drawRowBoxes(this.characters, xscale, yscale, widthscale, heightscale);
         return this.characters;
       } else {
         let characters = this.characters;
 
-        let sortedElements = characters.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
-        console.log(sortedElements);
-        let middleElementIdx = Math.trunc(sortedElements.length / 2);
-        let UpperQuartileIdx = Math.trunc(4*sortedElements.length / 5);
-        let medianElementSpacing = sortedElements[middleElementIdx];
-        let upperQuartileElementSpacing = sortedElements[UpperQuartileIdx];
-        console.log(`Median spacing = ${medianElementSpacing}`);
-        console.log(`Upper quartile spacing = ${upperQuartileElementSpacing}`);
-        let charactersReblocked = [];
-        let allReblocked = [];
-        this.ctx.strokeStyle = 'grey';
-        this.ctx.lineWidth=2;
-        for (let i in characters) {
-          charactersReblocked.push(characters[i]);
-          if (characters[i].spacingRight > 4 * upperQuartileElementSpacing) {
-            let newArray = [...charactersReblocked];
-            allReblocked.push(newArray);
-            charactersReblocked = []
-            let arrLen = newArray.length;
-            xscale = newArray[0].x1;
-            x = xscale / this.scale;
-            let widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
-            width = (widthscale) / this.scale;
-            //height = maxHeight / this.scale;
-            
-            this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
-            this.ctx.strokeRect(x, rowY, width, rowHeight);
-          }
-        }
-        let newArray = [...charactersReblocked];
-        let arrLen = newArray.length;
-        allReblocked.push(newArray);
-        xscale = newArray[0].x1;
-        x = xscale / this.scale;
-        let widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
-        width = (widthscale) / this.scale;
-        this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
+        let allReblocked = this.drawRowBoxes(characters, xscale, yscale, widthscale, heightscale);
 
-        this.ctx.strokeRect(x, rowY, width, rowHeight);
+
+        //let charactersReblocked = [];
+        //let allReblocked = [];
+        //this.ctx.strokeStyle = 'grey';
+        //this.ctx.lineWidth=2;
+        //for (let i in characters) {
+        //  charactersReblocked.push(characters[i]);
+        //  if (characters[i].spacingRight > 4 * upperQuartileElementSpacing) {
+        //    let newArray = [...charactersReblocked];
+        //    allReblocked.push(newArray);
+        //    charactersReblocked = []
+        //    let arrLen = newArray.length;
+        //    xscale = newArray[0].x1;
+        //    x = xscale / this.scale;
+        //    widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
+        //    width = (widthscale) / this.scale;
+        //    //height = maxHeight / this.scale;
+        //    
+        //    this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
+        //    this.ctx.strokeRect(x, rowY, width, rowHeight);
+        //  }
+        //}
+        //let newArray = [...charactersReblocked];
+        //let arrLen = newArray.length;
+        //allReblocked.push(newArray);
+        //xscale = newArray[0].x1;
+        //x = xscale / this.scale;
+        //widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
+        //width = (widthscale) / this.scale;
+        //this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
+
+        //this.ctx.strokeRect(x, rowY, width, rowHeight);
         this.characters = [];
         return allReblocked;
       }
