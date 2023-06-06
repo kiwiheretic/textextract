@@ -223,21 +223,29 @@ class StepBoxes {
       this.done = false;
   }
   drawRowBoxes(characters, xs, ys, ws, hs) {
+    const maxDelimiterSpacingFactor = 5;
+
     let sortedElements = characters.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
-    console.log(sortedElements);
     let middleElementIdx = Math.trunc(sortedElements.length / 2);
     let medianElementSpacing = sortedElements[middleElementIdx];
     let UpperQuartileIdx = Math.trunc(4*sortedElements.length / 5);
     let delimiterSpacing = sortedElements[UpperQuartileIdx];
-    console.log(`Median spacing = ${medianElementSpacing}`);
-    console.log(`Upper quartile spacing = ${delimiterSpacing}`);
+    let text;
+    text = `Row ${ys} - spacing trigger on space count of ${delimiterSpacing}\n`;
+    text += `Median spacing = ${medianElementSpacing}\n`;
+    text += `Upper division spacing = ${delimiterSpacing}\n`;
     let charactersReblocked = [];
     let allReblocked = [];
     this.ctx.strokeStyle = 'grey';
     this.ctx.lineWidth=2;
     for (let i in characters) {
       charactersReblocked.push(characters[i]);
-      if (characters[i].spacingRight > 4 * delimiterSpacing) {
+      // Make sure the spacingLeft > 0 otherwise it means that the character
+      // has jumped backwards which can happen for the dot of the letter i
+      // which occurs in the middle of the stalk of the i and not after it.
+      if (characters[i].spacingLeft > 0 &&
+        characters[i].spacingRight > maxDelimiterSpacingFactor * delimiterSpacing) {
+        text += `Spacing to right ${characters[i].spacingRight} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to being a new box\n`
         let newArray = [...charactersReblocked];
         allReblocked.push(newArray);
         charactersReblocked = []
@@ -269,7 +277,7 @@ class StepBoxes {
     width = (ws) / this.scale;
     this.ctx.drawImage(this.srcImg, xs, ys, ws, hs, x, y, width, height);
     this.ctx.strokeRect(x, y, width, height);
-
+    analysisLog(text);
     return allReblocked;
   }
 
@@ -356,38 +364,6 @@ class StepBoxes {
 
         let allReblocked = this.drawRowBoxes(characters, xscale, yscale, widthscale, heightscale);
 
-
-        //let charactersReblocked = [];
-        //let allReblocked = [];
-        //this.ctx.strokeStyle = 'grey';
-        //this.ctx.lineWidth=2;
-        //for (let i in characters) {
-        //  charactersReblocked.push(characters[i]);
-        //  if (characters[i].spacingRight > 4 * upperQuartileElementSpacing) {
-        //    let newArray = [...charactersReblocked];
-        //    allReblocked.push(newArray);
-        //    charactersReblocked = []
-        //    let arrLen = newArray.length;
-        //    xscale = newArray[0].x1;
-        //    x = xscale / this.scale;
-        //    widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
-        //    width = (widthscale) / this.scale;
-        //    //height = maxHeight / this.scale;
-        //    
-        //    this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
-        //    this.ctx.strokeRect(x, rowY, width, rowHeight);
-        //  }
-        //}
-        //let newArray = [...charactersReblocked];
-        //let arrLen = newArray.length;
-        //allReblocked.push(newArray);
-        //xscale = newArray[0].x1;
-        //x = xscale / this.scale;
-        //widthscale = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
-        //width = (widthscale) / this.scale;
-        //this.ctx.drawImage(this.srcImg, xscale, yscale, widthscale, heightscale, x, rowY, width, rowHeight);
-
-        //this.ctx.strokeRect(x, rowY, width, rowHeight);
         this.characters = [];
         return allReblocked;
       }

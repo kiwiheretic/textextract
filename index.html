@@ -5,6 +5,9 @@
   <title></title>
 </head>
 <style>
+  body {
+    background-color: lightgrey;
+  }
   div.container {
     display: flex;
     justify-content: center;
@@ -19,14 +22,22 @@
     margin: auto;
     overflow: scroll;
     border: 1px solid black;
+    overflow-x: hidden;
   }
   div.button-container {
     align-self: center;
   }
   button{
-    width: 300px;
+    width: 250px;
     margin: 20px;
     font-size: 24px;
+    background-color: steelblue;
+    color: white;
+  }
+  div.analysis-container {
+    background-color: white;
+    margin: 40px;
+    padding: 20px;
   }
 </style>
 <body>
@@ -41,12 +52,51 @@
       <canvas id="my-canvas"></canvas>
     </div>
   </div>
+  <div id="charts">
+  </div>
+  <div class="analysis-container">
+    <h2>Analysis</h2>
+    <div id="analysis">
+
+    </div>
+
+  </div>
+  
   <script>
     const myCanvas = document.getElementById('my-canvas'); 
     const context = myCanvas.getContext('2d',{willReadFrequently: true});
+
+    function analysisLog(text) {
+      let theDiv = document.getElementById("analysis");
+      let pNode = document.createElement('p');
+      let result = text.replace(/\n/g, "<br/>");
+      pNode.innerHTML = result;
+      theDiv.appendChild(pNode);
+    }
   </script>
   <script src="./js.js?v=0.2"></script>
   <script>
+    function makeChart() {
+
+    }
+
+
+    function getCountDictionary(array) {
+      var countDictionary = {};
+
+      for (var i = 0; i < array.length; i++) {
+        var element = array[i];
+        if (countDictionary[element]) {
+          countDictionary[element]++;
+        } else {
+          countDictionary[element] = 1;
+        }
+      }
+
+      return countDictionary;
+    }
+
+
     const img = new Image();        
     img.src = './sample-page.png';        
     img.onload = () => { 
@@ -110,14 +160,17 @@
               timer = null;
               console.log("Cancelling timer");
             } else if (Array.isArray(result) && result.length > 0) {
-              let sortedElements = result.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
+              let sortedElements = result.flat().filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
               console.log(sortedElements);
               let middleElementIdx = Math.trunc(sortedElements.length / 2);
               let UpperQuartileIdx = Math.trunc(3*sortedElements.length / 4);
               let medianElementSpacing = sortedElements[middleElementIdx];
               let upperQuartileElementSpacing = sortedElements[UpperQuartileIdx];
+              let counts = getCountDictionary(sortedElements);
+              console.log(counts);
               console.log(`Median spacing = ${medianElementSpacing}`);
               console.log(`Upper quartile spacing = ${upperQuartileElementSpacing}`);
+              let text = `Upper quartile \nspacing = ${upperQuartileElementSpacing}`;
 
             }
           }, 100);
