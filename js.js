@@ -155,53 +155,159 @@ function find_boxes(raster_data) {
     return blocks;
 }
 
+function comparey(obj1, obj2) {
+  let [x1a, y1a, x1b, y1b] = obj1;
+  let [x2a, y2a, x2b, y2b] = obj2;
+  if (y1a < y2a) {
+    return -1;
+  } else if (y1a > y2a) {
+    return 1;
+  } else {
+    return 0;
+  }
+
+} // function
+function comparex(obj1, obj2) {
+  let [x1a, y1a, x1b, y1b] = obj1;
+  let [x2a, y2a, x2b, y2b] = obj2;
+  if (x1a < x2a) {
+    return -1;
+  } else if (x1a > x2a) {
+    return 1;
+  } else {
+    return 0;
+  }
+
+} // function
+
+function AddMetaInformationToCharacters(sorted_boxes) {
+  newArray = [];
+  let lboxes = sorted_boxes.length;
+  let spacingLeft= null;
+  let spacingRight = null;
+  for (let ii=0; ii < lboxes; ii++) {
+    if (ii>0) {
+      spacingLeft = sorted_boxes[ii][0] - sorted_boxes[ii-1][2];
+    }
+    if (ii < lboxes - 1) {
+      spacingRight = sorted_boxes[ii+1][0] - sorted_boxes[ii][2];
+    }
+    let x1 = sorted_boxes[ii][0];
+    let y1 = sorted_boxes[ii][1];
+    let x2 = sorted_boxes[ii][2];
+    let y2 = sorted_boxes[ii][3];
+    let width = x2-x1+1;
+    let height = y2-y1+1;
+    let character = { 
+      x1: x1,
+      y1: y1,
+      x2: x2,
+      y2: y2,
+      spacing_left: spacingLeft,
+      spacing_right: spacingRight,
+      width: width,
+      height: height,
+      area: width*height
+    }
+    newArray.push(character);
+  }
+  let len = newArray.length;
+
+  let sortedElements = newArray.filter( element => (element.spacing_right != null && element.spacing_right > 0) ).map( element => element.spacing_right ).toSorted((a,b) => a - b);
+  let middleElementIdx = Math.trunc(sortedElements.length / 2);
+  let medianElementSpacing = sortedElements[middleElementIdx];
+  let UpperQuartileIdx = Math.trunc(3*sortedElements.length / 4);
+  let delimiterSpacing = sortedElements[UpperQuartileIdx];
+  const maxDelimiterSpacingFactor = 1.2;
+
+  let allReblocked = [];
+  let charactersReblocked = [];
+  let bottom_line = null;
+  let top_line = null;
+  for (let i in newArray) {
+    let character = newArray[i];
+    charactersReblocked.push(character);
+    // Make sure the spacingLeft > 0 otherwise it means that the character
+    // has jumped backwards which can happen for the dot of the letter i
+    // which occurs in the middle of the stalk of the i and not after it.
+    if (bottom_line === null || character.y1 < bottom_line) {
+      bottom_line = character.y1;
+    }
+    if (top_line === null || character.y2 > top_line ) {
+      top_line = character.y2;
+    }
+    if (character.spacing_left > 0 &&
+      character.spacing_right > maxDelimiterSpacingFactor * delimiterSpacing) {
+      console.log( `Spacing to right ${character.spacing_right} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to being a new box\n`)
+      
+      let array = [...charactersReblocked];
+      allReblocked.push({
+        left_column: array[0].x1,
+        right_column: array[array.length-1].x2,
+        charactersInBlock: array});
+      charactersReblocked = []
+      
+    }
+  }
+  if (charactersReblocked.length > 0) {
+    let array = [...charactersReblocked];
+    let arrLen = array.length;
+    allReblocked.push({
+      left_column: array[0].x1,
+      right_column: array[array.length-1].x2,
+      charactersInBlock: array});
+  }
+
+  let sorted_row = { 
+       bottom_line: bottom_line,
+       top_line: top_line,
+       characters: allReblocked }
+  
+  return sorted_row;
+} // AddMetaInformationToCharacters
+
+
 function get_row_sorted(boxes) {
-  function comparey(obj1, obj2) {
-    let [x1a, y1a, x1b, y1b] = obj1;
-    let [x2a, y2a, x2b, y2b] = obj2;
-    if (y1a < y2a) {
-      return -1;
-    } else if (y1a > y2a) {
-      return 1;
-    } else {
-      return 0;
-    }
 
-  } // function
-  function comparex(obj1, obj2) {
-    let [x1a, y1a, x1b, y1b] = obj1;
-    let [x2a, y2a, x2b, y2b] = obj2;
-    if (x1a < x2a) {
-      return -1;
-    } else if (x1a > x2a) {
-      return 1;
-    } else {
-      return 0;
-    }
-
-  } // function
 
   boxes.sort(comparey);
   let double_sorted = [];
   let bottom_line = null;
+  let top_line = null;
   let sorted_boxes = [];
+  let newArray;
+  let sorted_row;
   boxes.forEach( function(item) {
     let [x1, y1, x2, y2] = item;
-    if (bottom_line === null || y2+3 > bottom_line) {
-      if (bottom_line !== null && y1 > bottom_line + 2) {
-        sorted_boxes.sort(comparex);
-        double_sorted.push([...sorted_boxes]);
-        sorted_boxes = [];
-      }
-      if (y2 > bottom_line ) {
-        bottom_line = y2;
-      }
+
+    // The minimum amount of space required below a line of characters to 
+    // determine if a new row has happened.
+    const newLineMinimumMargin = 3;
+
+    // Keep track of the top most line occupied by any character
+    if (top_line === null || y1 < top_line) {
+      top_line = y1;
+    }
+    // Is this character below the current row of characters?
+    if (bottom_line != null && y2 > bottom_line + newLineMinimumMargin) {
+      sorted_boxes.sort(comparex);
+      sorted_row = AddMetaInformationToCharacters(sorted_boxes);
+      double_sorted.push(sorted_row);
+      sorted_boxes = [];
+      top_line = null;
+      // I haven't bothered setting bottom line to null here because the
+      // line numbers are always increasing so it will take care of itself
+    }
+    // Keep track of the bottom most line
+    if (bottom_line === null || y2 > bottom_line ) {
+      bottom_line = y2;
     }
 
     sorted_boxes.push(item);
   });
   sorted_boxes.sort(comparex);
-  double_sorted.push([...sorted_boxes]);
+  sorted_row = AddMetaInformationToCharacters(sorted_boxes);
+  double_sorted.push(sorted_row);
   return double_sorted;
 }
 
@@ -209,21 +315,14 @@ class StepBoxes {
   constructor (ctx, srcImg, rowdata, scale) {
       this.ctx = ctx;
       this.srcImg = srcImg;
-      this.x = null;
-      this.y = null;
-      this.width = null;
-      this.height = null;
       this.majorIdx = 0;
       this.minorIdx = 0;
       this.rowdata = rowdata;
       this.scale = scale
-      this.row_dimensions = null;
-      this.characters = [];
-      this.lastvalues = null;
       this.done = false;
   }
+
   drawRowBoxes(characters, xs, ys, ws, hs) {
-    const maxDelimiterSpacingFactor = 5;
 
     let sortedElements = characters.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
     let middleElementIdx = Math.trunc(sortedElements.length / 2);
@@ -246,6 +345,7 @@ class StepBoxes {
       if (characters[i].spacingLeft > 0 &&
         characters[i].spacingRight > maxDelimiterSpacingFactor * delimiterSpacing) {
         text += `Spacing to right ${characters[i].spacingRight} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to being a new box\n`
+        
         let newArray = [...charactersReblocked];
         allReblocked.push(newArray);
         charactersReblocked = []
@@ -282,7 +382,12 @@ class StepBoxes {
   }
 
   step() {
-    let [x1, y1, x2, y2] = this.rowdata[this.majorIdx][this.minorIdx];
+    let row = this.rowdata[this.majorIdx].characters;
+    //let characterBlock = 
+    let x1 = characters.x1;
+    let y1 = characters.y1;
+    let x2 = characters.x2;
+    let y2 = characters.y1;
     let width = x2 - x1 + 1;
     let height = y2 - y1 + 1;
     let spacingLeft, spacingRight;
@@ -292,20 +397,6 @@ class StepBoxes {
 
     if (this.done) return this;
 
-    if (this.minorIdx > 0) {
-      x2prev = this.rowdata[this.majorIdx][this.minorIdx-1][2];
-      spacingLeft = x1 - x2prev;
-    } else {
-      spacingLeft = null;
-    }
-    if (this.minorIdx < this.rowdata[this.majorIdx].length - 1 ) {
-      x1next = this.rowdata[this.majorIdx][this.minorIdx+1][0];
-      spacingRight = x1next - x2;
-    } else {
-      spacingRight = null;
-    }
-
-
     this.characters.push( {
       x1: x1,
       y1: y1,
@@ -313,22 +404,22 @@ class StepBoxes {
       y2: y2,
       width: width,
       height: height, 
-      spacingLeft: spacingLeft,
-      spacingRight: spacingRight,
+      spacingLeft: character.spacingLeft,
+      spacingRight: character.spacingRight,
       area: width*height} )
 
 
-    if (this.row_dimensions === null) {
-      this.row_dimensions = {x1:x1, y1:y1, x2:x2, y2:y2};
-    } else {
-      if (y1 < this.row_dimensions.y1) {
-        this.row_dimensions.y1 = y1;
-      }
-      if (y2 > this.row_dimensions.y2) {
-        this.row_dimensions.y2 = y2;
-      }
-      this.row_dimensions.x2 = x2;
-    }
+    //if (this.row_dimensions === null) {
+    //  this.row_dimensions = {x1:x1, y1:y1, x2:x2, y2:y2};
+    //} else {
+    //  if (y1 < this.row_dimensions.y1) {
+    //    this.row_dimensions.y1 = y1;
+    //  }
+    //  if (y2 > this.row_dimensions.y2) {
+    //    this.row_dimensions.y2 = y2;
+    //  }
+    //  this.row_dimensions.x2 = x2;
+    //}
     this.ctx.strokeStyle = 'orange';
     this.ctx.lineWidth=2;
     this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (x2-x1+3)/this.scale, (y2-y1+3)/this.scale);
@@ -340,18 +431,19 @@ class StepBoxes {
     this.ctx.strokeStyle = 'blue';
     this.ctx.lineWidth=3;
     this.minorIdx++;
-    if (this.minorIdx >= this.rowdata[this.majorIdx].length) {
+    let rowMeta = this.rowdata[this.majorIdx];
+    if (this.minorIdx >= rowMeta.characters.length) {
       this.ctx.strokeStyle = '#a0a0f0';
       this.ctx.lineWidth=2;
-      xscale = (this.row_dimensions.x1-2);
-      yscale = (this.row_dimensions.y1-2)
+      xscale = (rowMeta.left_column-2);
+      yscale = (rowMeta.top_line-2)
       x = (xscale)/this.scale;
       y = (yscale)/this.scale;
-      widthscale = (this.row_dimensions.x2 - this.row_dimensions.x1 + 4);
+      widthscale = (rowMeta.right_column - rowMeta.left_column + 4);
       width = widthscale / this.scale;
-      heightscale = (this.row_dimensions.y2 - this.row_dimensions.y1 + 4);
+      heightscale = (rowMeta.bottom_line - rowMeta.top_line + 4);
       height = (heightscale)/this.scale;
-      this.row_dimensions = null;
+      //this.row_dimensions = null;
       let [rowY, rowHeight] = [y, height];
       this.majorIdx++;
       this.minorIdx = 0;
