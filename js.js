@@ -214,11 +214,13 @@ function AddMetaInformationToCharacters(sorted_boxes) {
   let len = newArray.length;
 
   let sortedElements = newArray.filter( element => (element.spacing_right != null && element.spacing_right > 0) ).map( element => element.spacing_right ).toSorted((a,b) => a - b);
+  console.log(sortedElements);
   let middleElementIdx = Math.trunc(sortedElements.length / 2);
   let medianElementSpacing = sortedElements[middleElementIdx];
   let UpperQuartileIdx = Math.trunc(3*sortedElements.length / 4);
   let delimiterSpacing = sortedElements[UpperQuartileIdx];
-  const maxDelimiterSpacingFactor = 1.2;
+  console.log(delimiterSpacing);
+  const maxDelimiterSpacingFactor = 6;
 
   let allReblocked = [];
   let charactersReblocked = [];
@@ -230,11 +232,11 @@ function AddMetaInformationToCharacters(sorted_boxes) {
     // Make sure the spacingLeft > 0 otherwise it means that the character
     // has jumped backwards which can happen for the dot of the letter i
     // which occurs in the middle of the stalk of the i and not after it.
-    if (bottom_line === null || character.y1 < bottom_line) {
-      bottom_line = character.y1;
+    if (top_line === null || character.y1 < top_line) {
+      top_line = character.y1;
     }
-    if (top_line === null || character.y2 > top_line ) {
-      top_line = character.y2;
+    if (bottom_line === null || character.y2 > bottom_line ) {
+      bottom_line = character.y2;
     }
     if (character.spacing_left > 0 &&
       character.spacing_right > maxDelimiterSpacingFactor * delimiterSpacing) {
@@ -261,7 +263,7 @@ function AddMetaInformationToCharacters(sorted_boxes) {
   let sorted_row = { 
        bottom_line: bottom_line,
        top_line: top_line,
-       characters: allReblocked }
+       blocks : allReblocked }
   
   return sorted_row;
 } // AddMetaInformationToCharacters
@@ -273,7 +275,7 @@ function get_row_sorted(boxes) {
   boxes.sort(comparey);
   let double_sorted = [];
   let bottom_line = null;
-  let top_line = null;
+  //let top_line = null;
   let sorted_boxes = [];
   let newArray;
   let sorted_row;
@@ -285,16 +287,15 @@ function get_row_sorted(boxes) {
     const newLineMinimumMargin = 3;
 
     // Keep track of the top most line occupied by any character
-    if (top_line === null || y1 < top_line) {
-      top_line = y1;
-    }
+    //if (top_line === null || y1 < top_line) {
+    //  top_line = y1;
+    //}
     // Is this character below the current row of characters?
-    if (bottom_line != null && y2 > bottom_line + newLineMinimumMargin) {
+    if (bottom_line != null && y1 > bottom_line + newLineMinimumMargin) {
       sorted_boxes.sort(comparex);
       sorted_row = AddMetaInformationToCharacters(sorted_boxes);
       double_sorted.push(sorted_row);
       sorted_boxes = [];
-      top_line = null;
       // I haven't bothered setting bottom line to null here because the
       // line numbers are always increasing so it will take care of itself
     }
@@ -316,151 +317,67 @@ class StepBoxes {
       this.ctx = ctx;
       this.srcImg = srcImg;
       this.majorIdx = 0;
-      this.minorIdx = 0;
+      this.characterIdx = 0;
+      this.blockIdx = 0;
       this.rowdata = rowdata;
       this.scale = scale
       this.done = false;
   }
 
-  drawRowBoxes(characters, xs, ys, ws, hs) {
-
-    let sortedElements = characters.filter( element => (element.spacingRight != null && element.spacingRight > 0) ).map( element => element.spacingRight ).toSorted((a,b) => a - b);
-    let middleElementIdx = Math.trunc(sortedElements.length / 2);
-    let medianElementSpacing = sortedElements[middleElementIdx];
-    let UpperQuartileIdx = Math.trunc(4*sortedElements.length / 5);
-    let delimiterSpacing = sortedElements[UpperQuartileIdx];
-    let text;
-    text = `Row ${ys} - spacing trigger on space count of ${delimiterSpacing}\n`;
-    text += `Median spacing = ${medianElementSpacing}\n`;
-    text += `Upper division spacing = ${delimiterSpacing}\n`;
-    let charactersReblocked = [];
-    let allReblocked = [];
-    this.ctx.strokeStyle = 'grey';
-    this.ctx.lineWidth=2;
-    for (let i in characters) {
-      charactersReblocked.push(characters[i]);
-      // Make sure the spacingLeft > 0 otherwise it means that the character
-      // has jumped backwards which can happen for the dot of the letter i
-      // which occurs in the middle of the stalk of the i and not after it.
-      if (characters[i].spacingLeft > 0 &&
-        characters[i].spacingRight > maxDelimiterSpacingFactor * delimiterSpacing) {
-        text += `Spacing to right ${characters[i].spacingRight} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to being a new box\n`
-        
-        let newArray = [...charactersReblocked];
-        allReblocked.push(newArray);
-        charactersReblocked = []
-        let arrLen = newArray.length;
-        xs = newArray[0].x1;
-        let x = xs / this.scale;
-        let y = ys / this.scale
-        ws = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
-        
-        let width = (ws) / this.scale;
-        let height = hs / this.scale;
-        
-        this.ctx.drawImage(this.srcImg, xs, ys, ws, hs, x, y, width, height);
-        this.ctx.strokeRect(x, y, width, height);
-      }
-    }
-    let newArray = [...charactersReblocked];
-    let arrLen = newArray.length;
-    allReblocked.push(newArray);
-    xs = newArray[0].x1;
-
-    let x = xs / this.scale;
-    let y = ys / this.scale
-    ws = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
-    
-    let width = (ws) / this.scale;
-    let height = hs / this.scale;
-    ws = (newArray[arrLen - 1].x2 - newArray[0].x1 + 1);
-    width = (ws) / this.scale;
-    this.ctx.drawImage(this.srcImg, xs, ys, ws, hs, x, y, width, height);
-    this.ctx.strokeRect(x, y, width, height);
-    analysisLog(text);
-    return allReblocked;
-  }
 
   step() {
-    let row = this.rowdata[this.majorIdx].characters;
-    //let characterBlock = 
-    let x1 = characters.x1;
-    let y1 = characters.y1;
-    let x2 = characters.x2;
-    let y2 = characters.y1;
-    let width = x2 - x1 + 1;
-    let height = y2 - y1 + 1;
-    let spacingLeft, spacingRight;
-    let x1next, x2prev;
-    let xscale, yscale;
-    let heightscale, widthscale;
-
     if (this.done) return this;
 
-    this.characters.push( {
-      x1: x1,
-      y1: y1,
-      x2: x2,
-      y2: y2,
-      width: width,
-      height: height, 
-      spacingLeft: character.spacingLeft,
-      spacingRight: character.spacingRight,
-      area: width*height} )
+    const character = this.rowdata[this.majorIdx].blocks[this.blockIdx].charactersInBlock[this.characterIdx];
+    const characters = this.rowdata[this.majorIdx].blocks[this.blockIdx].charactersInBlock;
+    const charactersCount = this.rowdata[this.majorIdx].blocks[this.blockIdx].charactersInBlock.length;
+    const rowData = this.rowdata[this.majorIdx];
+    const blockCount = rowData.blocks.length;
+    const rowCount = this.rowdata.length;
 
+    let x1 = character.x1;
+    let y1 = character.y1;
+    let x2 = character.x2;
+    let y2 = character.y1;
+    let width = character.width;
+    let height = character.height;
 
-    //if (this.row_dimensions === null) {
-    //  this.row_dimensions = {x1:x1, y1:y1, x2:x2, y2:y2};
-    //} else {
-    //  if (y1 < this.row_dimensions.y1) {
-    //    this.row_dimensions.y1 = y1;
-    //  }
-    //  if (y2 > this.row_dimensions.y2) {
-    //    this.row_dimensions.y2 = y2;
-    //  }
-    //  this.row_dimensions.x2 = x2;
-    //}
     this.ctx.strokeStyle = 'orange';
     this.ctx.lineWidth=2;
-    this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (x2-x1+3)/this.scale, (y2-y1+3)/this.scale);
+    this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (width+3)/this.scale, (height+3)/this.scale);
 
-    let x = x1 - 3;
-    let y = y1 - 3;
-    width = x2 - x1 + 6;
-    height = y2 - y1 + 6;
-    this.ctx.strokeStyle = 'blue';
-    this.ctx.lineWidth=3;
-    this.minorIdx++;
-    let rowMeta = this.rowdata[this.majorIdx];
-    if (this.minorIdx >= rowMeta.characters.length) {
+    this.characterIdx++;
+    if (this.characterIdx >= charactersCount) {
+      const boxMargin = 2;
+      let xs = characters[0].x1 - boxMargin;
+      let ys = rowData.top_line - boxMargin;
+      let x = (xs)/this.scale;
+      let y = (ys)/this.scale;
+      let swidth = ( characters[charactersCount-1].x2 - characters[0].x1 + boxMargin);
+      let sheight = ( rowData.bottom_line - rowData.top_line + boxMargin);
+
+      let width = swidth/this.scale;
+      let height = sheight/this.scale;
+
       this.ctx.strokeStyle = '#a0a0f0';
       this.ctx.lineWidth=2;
-      xscale = (rowMeta.left_column-2);
-      yscale = (rowMeta.top_line-2)
-      x = (xscale)/this.scale;
-      y = (yscale)/this.scale;
-      widthscale = (rowMeta.right_column - rowMeta.left_column + 4);
-      width = widthscale / this.scale;
-      heightscale = (rowMeta.bottom_line - rowMeta.top_line + 4);
-      height = (heightscale)/this.scale;
-      //this.row_dimensions = null;
-      let [rowY, rowHeight] = [y, height];
-      this.majorIdx++;
-      this.minorIdx = 0;
-      if (this.majorIdx >= this.rowdata.length) {
-        this.done = true;
-        let allReblocked = this.drawRowBoxes(this.characters, xscale, yscale, widthscale, heightscale);
-        return this.characters;
-      } else {
-        let characters = this.characters;
+      this.ctx.drawImage(this.srcImg, xs, ys, swidth, sheight, x, y, width, height);
+      this.ctx.strokeRect(x, y, width, height);
 
-        let allReblocked = this.drawRowBoxes(characters, xscale, yscale, widthscale, heightscale);
+      this.blockIdx++;
+      this.characterIdx = 0;
+      if (this.blockIdx >= blockCount ) {
 
-        this.characters = [];
-        return allReblocked;
-      }
-    }
+        this.blockIdx = 0;
+        this.majorIdx++;
+
+        if (this.majorIdx >= rowCount) {
+          this.done = true;
+        }
+
+      } // endif blockIdx 
+    } // endif CharacterIdx
     return null;
-  }
+  } // step()
 }
 
