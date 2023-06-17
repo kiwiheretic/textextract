@@ -337,6 +337,19 @@ function get_row_sorted(boxes) {
   return double_sorted;
 }
 
+function calc_box_extent(row, boundingBox) {
+  // This is a very crude paragraph block locating procedure which
+  // propably quick falls apart if there is more than one block.
+  let [x1, y1, x2, y2] = boundingBox;
+  let first_block = row.blocks[0];
+
+  if (y1 === null || y1 > row.top_line) y1 = row.top_line;
+  if (y2 === null || y2 < row.bottom_line) y2 = row.bottom_line;
+  if (x1 === null || x1 > first_block.left_column) x1 = first_block.left_column;
+  if (x2 === null || x2 < first_block.right_column) x2 = first_block.right_column;
+  return [x1, y1, x2, y2];
+}
+
 class StepBoxes {
   constructor (ctx, srcImg, rowdata, scale) {
       this.ctx = ctx;
@@ -347,8 +360,52 @@ class StepBoxes {
       this.rowdata = rowdata;
       this.scale = scale
       this.done = false;
+
+      this.ctx.strokeStyle = 'blue';
+      this.ctx.lineWidth=2;
+      let paragraphs = this.group_into_paragraphs();
+      for (let [indices, bbox] of paragraphs) {
+        console.log(bbox);
+        let [x1, y1, x2, y2] = bbox;
+        let width = x2 - x1 + 1;
+        let height =  y2 - y1 + 1;
+        this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (width+3)/this.scale, (height+3)/this.scale);
+      }
   }
 
+  group_into_paragraphs() {
+    const paragraphTolerance = 5;
+    
+    let paragraphs = []
+    let paragraph = []
+    let x1, x2, y1, y2;
+
+    let spacings = this.rowdata.map( elem => elem.row_spacing_next ).toSorted((a,b) => a-b)
+    let quartileIdx = Math.floor(spacings.length / 4);
+    let quartileSpacing = spacings[quartileIdx];
+    console.log("Quartile Spacing = " + quartileSpacing);
+
+    x1 = x2 = y1 = y2 = null;
+    for (let ii=0; ii<this.rowdata.length; ii++) {
+      let row = this.rowdata[ii];
+      if (quartileSpacing > row.row_spacing_next - paragraphTolerance) {
+        paragraph.push(ii);
+        [x1, y1, x2, y2 ] = calc_box_extent(row, [x1, y1, x2, y2]);
+
+      } else if (row.row_spacing_prev !== null &&
+          quartileSpacing > row.row_spacing_prev - paragraphTolerance) {
+        paragraph.push(ii);
+        [x1, y1, x2, y2 ] = calc_box_extent(row, [x1, y1, x2, y2]);
+      } else if (paragraph.length > 0) {
+        let width = x2-x1+1;
+        let height = y2 - y1 + 1;
+        paragraphs.push([paragraph, [x1, y1, x2, y2]])
+        paragraph = [];
+        x1 = x2 = y1 = y2 = null;
+      }
+    }
+    return paragraphs;
+  }
 
   step() {
     if (this.done) return this;

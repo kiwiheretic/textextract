@@ -97,18 +97,6 @@
     }
 
 
-    function calc_box_extent(row, boundingBox) {
-      // This is a very crude paragraph block locating procedure which
-      // propably quick falls apart if there is more than one block.
-      let [x1, y1, x2, y2] = boundingBox;
-      let first_block = row.blocks[0];
-
-      if (y1 === null || y1 > row.top_line) y1 = row.top_line;
-      if (y2 === null || y2 < row.bottom_line) y2 = row.bottom_line;
-      if (x1 === null || x1 > first_block.left_column) x1 = first_block.left_column;
-      if (x2 === null || x2 < first_block.right_column) x2 = first_block.right_column;
-      return [x1, y1, x2, y2];
-    }
 
 
     const img = new Image();        
@@ -142,38 +130,9 @@
       let boxes = find_boxes(raster); 
       let row_sorted = get_row_sorted(boxes);
 
-      let spacings = row_sorted.map( elem => elem.row_spacing_next ).toSorted((a,b) => a-b)
-      let quartileIdx = Math.floor(spacings.length / 4);
-      let quartileSpacing = spacings[quartileIdx];
-      console.log("Quartile Spacing = " + quartileSpacing);
-      const paragraphTolerance = 5;
-      
-      paragraphs = []
-      paragraph = []
-      let x1 = x2 = y1 = y2 = null;
-      for (let ii=0; ii<row_sorted.length; ii++) {
-        let row = row_sorted[ii];
-        if (quartileSpacing > row.row_spacing_next - paragraphTolerance) {
-          paragraph.push(ii);
-          [x1, y1, x2, y2 ] = calc_box_extent(row, [x1, y1, x2, y2]);
-
-        } else if (row.row_spacing_prev !== null &&
-            quartileSpacing > row.row_spacing_prev - paragraphTolerance) {
-          paragraph.push(ii);
-          [x1, y1, x2, y2 ] = calc_box_extent(row, [x1, y1, x2, y2]);
-        } else if (paragraph.length > 0) {
-          paragraphs.push([paragraph, [x1, y1, x2, y2]])
-          paragraph = [];
-          x1 = x2 = y1 = y2 = null;
-        }
-      }
-      console.log(paragraphs);
-
-      
       const stepbtn = document.getElementById("step-btn");
       const autobtn = document.getElementById("auto-btn");
       const clearbtn = document.getElementById("clear-btn");
-
 
       let timer = null;
       let stepboxes = new StepBoxes(context, img, row_sorted, canvas_scale);
