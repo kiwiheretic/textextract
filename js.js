@@ -45,117 +45,125 @@ function data_to_raster(data, width, height) {
 
 
 function find_boxes(raster_data) {
-    const WHITE = 255;
+  // Convert raster data to box data.
+  // That is [y, [x1,x2],[x3,x4], [x5,x6].... ] where the x arrays are
+  // horizontal line segments in the y row to
+  // [ [x1, y1, x2, y2] ... ] where these are the co-ordinates of a bounding
+  // box from (x1, y1) to (x2,y2) for that particular character this is made up
+  // from multiple raster lines.
 
-    let currblocks = [];
-    let blocks = [];
+  const WHITE = 255;
 
-    for (let [y, segments] of raster_data) {
-        let row = y;
-        for (let [rx1, rx2] of segments) {
-            //console.log(row, [rx1, rx2]);
-            let colstart = rx1;
-            let colend = rx2;
-            let found_blk = false;
-            let combine = null;
-            let nx1, nx2;
+  let currblocks = [];
+  let blocks = [];
 
-            for (let [ii, blk] of currblocks.entries()) {
-                let [x1, y1, x2, y2] = blk;
+  for (let [y, segments] of raster_data) {
+      let row = y;
+      for (let [rx1, rx2] of segments) {
+          let colstart = rx1;
+          let colend = rx2;
+          let found_blk = false;
+          let combine = null;
+          let nx1, nx2;
 
-                if (row === y2 || row === y2 + 1) {
-                    // check if the raster data immediately following pixel line
-                    // overlaps with the raster data of the current pixel line.
-                    // This is to check if stacked lines are forming a font character
-                    // or image or something else
-                    if (
-                        (x1 - 1 <= colstart) && (colstart <= x2 + 1) ||
-                        (x1 - 1 <= colend) && (colend <= x2 + 1) ||
-                        (colstart <= x1) && (x1 <= x2) && (x2 <= colend)
-                    ) {
-                        if (colstart < x1) {
-                            nx1 = colstart;
-                        } else {
-                            nx1 = x1;
-                        }
+          for (let [ii, blk] of currblocks.entries()) {
+              let [x1, y1, x2, y2] = blk;
 
-                        if (colend > x2) {
-                            nx2 = colend;
-                        } else {
-                            nx2 = x2;
-                        }
+              if (row === y2 || row === y2 + 1) {
+                  // check if the raster data immediately following pixel line
+                  // overlaps with the raster data of the current pixel line.
+                  // This is to check if stacked lines are forming a font character
+                  // or image or something else
+                  if (
+                      (x1 - 1 <= colstart) && (colstart <= x2 + 1) ||
+                      (x1 - 1 <= colend) && (colend <= x2 + 1) ||
+                      (colstart <= x1) && (x1 <= x2) && (x2 <= colend)
+                  ) {
+                      if (colstart < x1) {
+                          nx1 = colstart;
+                      } else {
+                          nx1 = x1;
+                      }
 
-                        let newitem = [nx1, y1, nx2, row];
-                        currblocks[ii] = newitem;
+                      if (colend > x2) {
+                          nx2 = colend;
+                      } else {
+                          nx2 = x2;
+                      }
 
-                        // Let's see if merging blocks to the right of it 
-                        // is possible
-                        if (ii < currblocks.length - 1) {
-                            for (
-                                let jj = currblocks.length - 1;
-                                jj > ii;
-                                jj--
-                            ) {
-                                let nxtblk = currblocks[jj];
-                                let [nbx1, nby1, nbx2, nby2] = nxtblk;
+                      let newitem = [nx1, y1, nx2, row];
+                      currblocks[ii] = newitem;
 
-                                // Does it overlap next block?
-                                if (
-                                    (nbx1 - 1 <= colstart) && (colstart <= nbx2 + 1) ||
-                                    (nbx1 - 1 <= colend) && (colend <= nbx2 + 1) ||
-                                    (colstart <= nbx1) && (nbx1 <= nbx2) && (nbx2 <= colend)
-                                ) {
-                                    if (y1 < nby1) {
-                                        newitem = [nx1, y1, nbx2, row];
-                                    } else {
-                                        newitem = [nx1, nby1, nbx2, row];
-                                    }
+                      // Let's see if merging blocks to the right of it 
+                      // is possible
+                      if (ii < currblocks.length - 1) {
+                          for (
+                              let jj = currblocks.length - 1;
+                              jj > ii;
+                              jj--
+                          ) {
+                              let nxtblk = currblocks[jj];
+                              let [nbx1, nby1, nbx2, nby2] = nxtblk;
 
-                                    currblocks[ii] = newitem;
-                                    currblocks.splice(jj, 1);
-                                }
-                            }
-                        }
+                              // Does it overlap next block?  If so, combine it
+                              if (
+                                  (nbx1 - 1 <= colstart) && (colstart <= nbx2 + 1) ||
+                                  (nbx1 - 1 <= colend) && (colend <= nbx2 + 1) ||
+                                  (colstart <= nbx1) && (nbx1 <= nbx2) && (nbx2 <= colend)
+                              ) {
+                                  if (y1 < nby1) {
+                                      newitem = [nx1, y1, nbx2, row];
+                                  } else {
+                                      newitem = [nx1, nby1, nbx2, row];
+                                  }
 
-                        found_blk = true;
-                        break;
-                    }
-                }
-            }
+                                  currblocks[ii] = newitem;
+                                  currblocks.splice(jj, 1);
+                              }
+                          }
+                      }
 
-            if (!found_blk) {
-                currblocks.push([colstart, row, colend, row]);
-                currblocks.sort((a, b) => a[0] - b[0]);
-
-                let indexes = [];
-                for (let [ii, blk] of currblocks.entries()) {
-                    let [x1, y1, x2, y2] = blk;
-
-                    if (y2 < row - 2) {
-                        indexes.unshift(ii);
-                    }
-                }
-
-                for (let idx of indexes) {
-                  let blk = currblocks[idx];
-                  let [x1, y1, x2, y2] = blk;
-                  let area = (x2 - x1) * (y2 - y1);
-
-                  if (area > 0) {
-                    blocks.push(blk);
+                      found_blk = true;
+                      break;
                   }
-                  currblocks.splice(idx, 1);
+              }
+          }
+
+          if (!found_blk) {
+              currblocks.push([colstart, row, colend, row]);
+              currblocks.sort((a, b) => a[0] - b[0]);
+
+              let indexes = [];
+              for (let [ii, blk] of currblocks.entries()) {
+                  let [x1, y1, x2, y2] = blk;
+
+                  if (y2 < row - 2) {
+                      indexes.unshift(ii);
+                  }
+              }
+
+              for (let idx of indexes) {
+                let blk = currblocks[idx];
+                let [x1, y1, x2, y2] = blk;
+                let area = (x2 - x1) * (y2 - y1);
+
+                if (area > 0) {
+                  blocks.push(blk);
                 }
-            }
+                currblocks.splice(idx, 1);
+              }
+          }
 
-        }
-    }
+      }
+  }
 
-    blocks = blocks.concat(currblocks);
-    return blocks;
+  blocks = blocks.concat(currblocks);
+  return blocks;
 }
 
 function comparey(obj1, obj2) {
+  // compare two bounding boxes (characters) to see if one starts lower than
+  // the other.
   let [x1a, y1a, x1b, y1b] = obj1;
   let [x2a, y2a, x2b, y2b] = obj2;
   if (y1a < y2a) {
@@ -166,8 +174,11 @@ function comparey(obj1, obj2) {
     return 0;
   }
 
-} // function
+} // comparey
+
+
 function comparex(obj1, obj2) {
+  // compare two bounding boxes to see if one is left of the other or not.
   let [x1a, y1a, x1b, y1b] = obj1;
   let [x2a, y2a, x2b, y2b] = obj2;
   if (x1a < x2a) {
@@ -178,9 +189,13 @@ function comparex(obj1, obj2) {
     return 0;
   }
 
-} // function
+} // comparex
 
 function AddMetaInformationToCharacters(sorted_boxes) {
+  // This adds "meta" information to each bounding block, such as the 
+  // amount of empty space to the right and left of it (meaning how close is
+  // it to other characters).  It also reblocks the characters from rows to
+  // sub blocks within rows.
   newArray = [];
   let lboxes = sorted_boxes.length;
   let spacingLeft= null;
@@ -214,12 +229,10 @@ function AddMetaInformationToCharacters(sorted_boxes) {
   let len = newArray.length;
 
   let sortedElements = newArray.filter( element => (element.spacing_right != null && element.spacing_right > 0) ).map( element => element.spacing_right ).toSorted((a,b) => a - b);
-  console.log(sortedElements);
   let middleElementIdx = Math.trunc(sortedElements.length / 2);
   let medianElementSpacing = sortedElements[middleElementIdx];
   let UpperQuartileIdx = Math.trunc(3*sortedElements.length / 4);
   let delimiterSpacing = sortedElements[UpperQuartileIdx];
-  console.log(delimiterSpacing);
   const maxDelimiterSpacingFactor = 6;
 
   let allReblocked = [];
@@ -240,7 +253,7 @@ function AddMetaInformationToCharacters(sorted_boxes) {
     }
     if (character.spacing_left > 0 &&
       character.spacing_right > maxDelimiterSpacingFactor * delimiterSpacing) {
-      console.log( `Spacing to right ${character.spacing_right} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to being a new box\n`)
+      analysisLog( `On line ${top_line} the spacing to right of ${character.spacing_right} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to move to a new box\n`)
       
       let array = [...charactersReblocked];
       allReblocked.push({
@@ -270,8 +283,8 @@ function AddMetaInformationToCharacters(sorted_boxes) {
 
 
 function get_row_sorted(boxes) {
-
-
+  // This sorts the boxes into rows and character positions with rows.
+  //
   boxes.sort(comparey);
   let double_sorted = [];
   let bottom_line = null;
@@ -286,10 +299,6 @@ function get_row_sorted(boxes) {
     // determine if a new row has happened.
     const newLineMinimumMargin = 3;
 
-    // Keep track of the top most line occupied by any character
-    //if (top_line === null || y1 < top_line) {
-    //  top_line = y1;
-    //}
     // Is this character below the current row of characters?
     if (bottom_line != null && y1 > bottom_line + newLineMinimumMargin) {
       sorted_boxes.sort(comparex);
@@ -308,7 +317,23 @@ function get_row_sorted(boxes) {
   });
   sorted_boxes.sort(comparex);
   sorted_row = AddMetaInformationToCharacters(sorted_boxes);
+  for (let ii=0; ii < double_sorted.length; ii++) {
+    let row = double_sorted[ii];
+    let rowSpacingNext = null;
+    let rowSpacingPrev = null;
+    if (ii < double_sorted.length - 1) {
+      let nextRow = double_sorted[ii+1];
+      rowSpacingNext = nextRow.top_line - row.bottom_line + 1;
+    }
+    if (ii > 0) {
+      let prevRow = double_sorted[ii-1];
+      rowSpacingPrev = row.top_line - prevRow.bottom_line + 1;
+    }
+    row.row_spacing_next = rowSpacingNext;
+    row.row_spacing_prev = rowSpacingPrev;
+  }
   double_sorted.push(sorted_row);
+
   return double_sorted;
 }
 
@@ -363,6 +388,11 @@ class StepBoxes {
       this.ctx.lineWidth=2;
       this.ctx.drawImage(this.srcImg, xs, ys, swidth, sheight, x, y, width, height);
       this.ctx.strokeRect(x, y, width, height);
+      this.ctx.font = "normal 14px serif";
+      this.ctx.strokeStyle = 'black';
+      this.ctx.textAlign = 'right';
+      let text = `${xs},${rowData.top_line}`;
+      this.ctx.fillText(text, x-5, y+5);
 
       this.blockIdx++;
       this.characterIdx = 0;
