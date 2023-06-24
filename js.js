@@ -191,6 +191,37 @@ function comparex(obj1, obj2) {
 
 } // comparex
 
+function analyseCharacterBlock(charBlock) {
+  // Try and guess what kind of content the block contains
+  const thresholdAboveBaseLine = 5;
+  let baseLine = null;
+  let topLine, bottomLine;
+  let countAboveBaseLine = 0;
+
+  let numChars = charBlock.length;
+  let bases = charBlock.map( e => e.y2 ).toSorted();
+  let idx = Math.floor(numChars / 2);
+  let medianBaseline = bases[idx];
+  for (let ii=0; ii < charBlock.length; ii++) {
+    let character = charBlock[ii];
+    if (character.y2 < medianBaseline - thresholdAboveBaseLine) countAboveBaseLine++;
+    if (topLine == null || character.y1 < topLine) topLine = character.y1;
+    if (bottomLine == null || character.y2 > bottomLine) bottomLine = character.y2;
+  }
+  if (countAboveBaseLine > 0) 
+    guess = Symbol.for("math")
+  else 
+    guess = Symbol.for("paragraph")
+  
+  let analysis = {
+    topLine,
+    bottomLine,
+    medianBaseline,
+    countAboveBaseLine,
+    guess
+  }
+  return analysis;
+}
 function AddMetaInformationToCharacters(sorted_boxes) {
   // This adds "meta" information to each bounding block, such as the 
   // amount of empty space to the right and left of it (meaning how close is
@@ -254,22 +285,28 @@ function AddMetaInformationToCharacters(sorted_boxes) {
     if (character.spacing_left > 0 &&
       character.spacing_right > maxDelimiterSpacingFactor * delimiterSpacing) {
       analysisLog( `On line ${top_line} the spacing to right of ${character.spacing_right} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to move to a new box\n`)
-      
+      // Do some kind of character analysis to try and determine what is in
+      // character block.
+      analysis = analyseCharacterBlock(charactersReblocked);
       let array = [...charactersReblocked];
       allReblocked.push({
         left_column: array[0].x1,
         right_column: array[array.length-1].x2,
-        charactersInBlock: array});
+        charactersInBlock: array,
+        analysis: analysis
+      });
       charactersReblocked = []
       
     }
   }
   if (charactersReblocked.length > 0) {
+    analysis = analyseCharacterBlock(charactersReblocked);
     let array = [...charactersReblocked];
     let arrLen = array.length;
     allReblocked.push({
       left_column: array[0].x1,
       right_column: array[array.length-1].x2,
+      analysis,
       charactersInBlock: array});
   }
 
@@ -364,9 +401,9 @@ class StepBoxes {
       this.ctx.strokeStyle = 'blue';
       this.ctx.lineWidth=2;
       let paragraphs = this.group_into_paragraphs();
-      for (let [indices, bbox] of paragraphs) {
-        console.log(bbox);
-        let [x1, y1, x2, y2] = bbox;
+      for (let paraMeta of paragraphs) {
+        console.log(paraMeta.bbox);
+        let [x1, y1, x2, y2] = paraMeta.bbox;
         let width = x2 - x1 + 1;
         let height =  y2 - y1 + 1;
         this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (width+3)/this.scale, (height+3)/this.scale);
@@ -388,6 +425,8 @@ class StepBoxes {
     x1 = x2 = y1 = y2 = null;
     for (let ii=0; ii<this.rowdata.length; ii++) {
       let row = this.rowdata[ii];
+      let width = x2-x1+1;
+      let height = y2 - y1 + 1;
       if (quartileSpacing > row.row_spacing_next - paragraphTolerance) {
         paragraph.push(ii);
         [x1, y1, x2, y2 ] = calc_box_extent(row, [x1, y1, x2, y2]);
@@ -396,12 +435,28 @@ class StepBoxes {
           quartileSpacing > row.row_spacing_prev - paragraphTolerance) {
         paragraph.push(ii);
         [x1, y1, x2, y2 ] = calc_box_extent(row, [x1, y1, x2, y2]);
-      } else if (paragraph.length > 0) {
-        let width = x2-x1+1;
-        let height = y2 - y1 + 1;
-        paragraphs.push([paragraph, [x1, y1, x2, y2]])
+        let paragraphMeta = {
+          indices: paragraph, 
+          type: Symbol.for("normal"),
+          bbox: [x1, y1, x2, y2] 
+        }
+        paragraphs.push(paragraphMeta)
         paragraph = [];
         x1 = x2 = y1 = y2 = null;
+      } else { // it is propably an orphan
+        let s;
+        if (ii == 0) {
+          s = Symbol.for("header?")
+        } else {
+          s = Symbol.for("orphan")
+        }
+
+        let paragraphMeta = {
+          indices: [ii], 
+          type: s,
+          bbox: [x1, y1, x2, y2] 
+        }
+        paragraphs.push(paragraphMeta)
       }
     }
     return paragraphs;
