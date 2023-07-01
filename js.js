@@ -198,13 +198,17 @@ function analyseCharacterBlock(charBlock) {
   let topLine, bottomLine;
   let countAboveBaseLine = 0;
 
+  let baseLineArray = [];
   let numChars = charBlock.length;
   let bases = charBlock.map( e => e.y2 ).toSorted();
   let idx = Math.floor(numChars / 2);
   let medianBaseline = bases[idx];
   for (let ii=0; ii < charBlock.length; ii++) {
     let character = charBlock[ii];
-    if (character.y2 < medianBaseline - thresholdAboveBaseLine) countAboveBaseLine++;
+    if (character.y2 < medianBaseline - thresholdAboveBaseLine) { 
+      countAboveBaseLine++;
+      baseLineArray.push({idx: ii, baseLine: character.y2 });
+    }
     if (topLine == null || character.y1 < topLine) topLine = character.y1;
     if (bottomLine == null || character.y2 > bottomLine) bottomLine = character.y2;
   }
@@ -218,6 +222,8 @@ function analyseCharacterBlock(charBlock) {
     bottomLine,
     medianBaseline,
     countAboveBaseLine,
+    baseLineArray,
+    numChars,
     guess
   }
   return analysis;
@@ -379,11 +385,13 @@ function calc_box_extent(row, boundingBox) {
   // propably quick falls apart if there is more than one block.
   let [x1, y1, x2, y2] = boundingBox;
   let first_block = row.blocks[0];
+  let last_block = row.blocks[row.blocks.length - 1];
 
   if (y1 === null || y1 > row.top_line) y1 = row.top_line;
   if (y2 === null || y2 < row.bottom_line) y2 = row.bottom_line;
+
   if (x1 === null || x1 > first_block.left_column) x1 = first_block.left_column;
-  if (x2 === null || x2 < first_block.right_column) x2 = first_block.right_column;
+  if (x2 === null || x2 < last_block.right_column) x2 = last_block.right_column;
   return [x1, y1, x2, y2];
 }
 
@@ -400,14 +408,16 @@ class StepBoxes {
 
       this.ctx.strokeStyle = 'blue';
       this.ctx.lineWidth=2;
-      let paragraphs = this.group_into_paragraphs();
-      for (let paraMeta of paragraphs) {
-        console.log(paraMeta.bbox);
-        let [x1, y1, x2, y2] = paraMeta.bbox;
-        let width = x2 - x1 + 1;
-        let height =  y2 - y1 + 1;
-        this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (width+3)/this.scale, (height+3)/this.scale);
-      }
+      this.paragraphs = this.group_into_paragraphs();
+      this.paraIdx = 0;
+      console.log(this.paragraphs)
+      //for (let paraMeta of paragraphs) {
+      //  console.log(paraMeta);
+      //  let [x1, y1, x2, y2] = paraMeta.bbox;
+      //  let width = x2 - x1 + 1;
+      //  let height =  y2 - y1 + 1;
+      //  this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (width+3)/this.scale, (height+3)/this.scale);
+      //}
   }
 
   group_into_paragraphs() {
@@ -445,6 +455,7 @@ class StepBoxes {
         x1 = x2 = y1 = y2 = null;
       } else { // it is propably an orphan
         let s;
+        [x1, y1, x2, y2 ] = calc_box_extent(row, [x1, y1, x2, y2]);
         if (ii == 0) {
           s = Symbol.for("header?")
         } else {
@@ -457,14 +468,38 @@ class StepBoxes {
           bbox: [x1, y1, x2, y2] 
         }
         paragraphs.push(paragraphMeta)
+        x1 = x2 = y1 = y2 = null;
       }
     }
     return paragraphs;
   }
 
+  drawBoxAroundParagraph ( paragraph ) {
+    const paragraphBoxColour = "steelblue";
+    const borderSpacing = 10;
+    this.ctx.strokeStyle = paragraphBoxColour;
+    this.ctx.lineWidth=2;
+    let [x1, y1, x2, y2] = paragraph.bbox;
+    x1 = x1 - borderSpacing;
+    y1 = y1 - borderSpacing;
+    x2 = x2 + borderSpacing;
+    y2 = y2 + borderSpacing;
+    let width = x2 - x1 + 1;
+    let height =  y2 - y1 + 1;
+    this.ctx.drawImage(this.srcImg, x1, y1, width, height, x1/this.scale, y1/this.scale, width/this.scale, height/this.scale);
+    this.ctx.strokeRect((x1-3)/this.scale, (y1-3)/this.scale, (width+3)/this.scale, (height+3)/this.scale);
+
+  }
   step() {
     if (this.done) return this;
 
+    if (this.majorIdx >= this.rowdata.length) {
+      let paraMeta = this.paragraphs[this.paraIdx];
+      console.log(paraMeta);
+      this.drawBoxAroundParagraph ( paraMeta );
+      this.done = true;
+      return this;
+    }
     const character = this.rowdata[this.majorIdx].blocks[this.blockIdx].charactersInBlock[this.characterIdx];
     const characters = this.rowdata[this.majorIdx].blocks[this.blockIdx].charactersInBlock;
     const charactersCount = this.rowdata[this.majorIdx].blocks[this.blockIdx].charactersInBlock.length;
@@ -475,7 +510,7 @@ class StepBoxes {
     let x1 = character.x1;
     let y1 = character.y1;
     let x2 = character.x2;
-    let y2 = character.y1;
+    let y2 = character.y2;
     let width = character.width;
     let height = character.height;
 
@@ -500,11 +535,13 @@ class StepBoxes {
       this.ctx.lineWidth=2;
       this.ctx.drawImage(this.srcImg, xs, ys, swidth, sheight, x, y, width, height);
       this.ctx.strokeRect(x, y, width, height);
-      this.ctx.font = "normal 14px serif";
-      this.ctx.strokeStyle = 'black';
-      this.ctx.textAlign = 'right';
-      let text = `${xs},${rowData.top_line}`;
-      this.ctx.fillText(text, x-5, y+5);
+      //this.ctx.font = "normal 14px serif";
+      //this.ctx.strokeStyle = 'black';
+      //this.ctx.textAlign = 'right';
+      //let text = `${xs},${rowData.top_line}`;
+      //this.ctx.fillText(text, x-5, y+5);
+
+      
 
       this.blockIdx++;
       this.characterIdx = 0;
@@ -512,6 +549,20 @@ class StepBoxes {
 
         this.blockIdx = 0;
         this.majorIdx++;
+        const rowData1 = this.rowdata[this.majorIdx];
+        const character1 = this.rowdata[this.majorIdx].blocks[this.blockIdx].charactersInBlock[this.characterIdx];
+        let x1 = character1.x1;
+        let y1 = character1.y1;
+        let x2 = character1.x2;
+        let y2 = character1.y2;
+
+        let paraY = this.paragraphs[this.paraIdx].bbox[3];
+        if (y1 > paraY) {
+          let paraMeta = this.paragraphs[this.paraIdx];
+          console.log(paraMeta);
+          this.drawBoxAroundParagraph ( paraMeta );
+          this.paraIdx++;
+        }
 
         if (this.majorIdx >= rowCount) {
           this.done = true;
