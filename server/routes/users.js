@@ -12,7 +12,7 @@ router.use((req, res, next) => {
 
 // define the about route
 router.post('/login', passport.authenticate('local'),  (req, res) => {
-  res.status(200).json({status: 'login successful'});;
+  res.redirect('/dashboard');
 })
 
 module.exports = router

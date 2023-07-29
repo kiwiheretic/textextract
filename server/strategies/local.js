@@ -21,7 +21,7 @@ passport.use(new localStrategy(
   (username, password, done) => {
      const result =  query(`select * from users where username = '${username}'`);
      console.log(result);
-     if ( result[0].length === 0) {
+     if ( result.length === 0) {
        done(null, false);
      } else if (result[0].password === password) {
        done(null, result[0]);
