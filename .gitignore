@@ -1,0 +1,4 @@
+*.swp
+**/node_modules
+this-commit.txt
+change_set.tar.gz
