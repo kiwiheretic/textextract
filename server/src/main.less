@@ -10,15 +10,25 @@ body {
   font-family: sans-serif;
 
 }
-input[type="text"], input[type="password"] {
-  background-color: white;
-  line-height: 1.5rem;
-  padding: 0px 10px;
-}
 input[type="submit"] {
   background-color: lightgrey;
   border-radius: 10px;
   height: 1.5rem;
+}
+
+button {
+  padding: 10px;
+  border-radius: 10px;
+  color: black;
+  background: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+
+button[type="submit"]  {
+  background: blue;
+  color: white;
 }
 
 header {
@@ -30,6 +40,11 @@ header {
   form.login {
     display: flex;
     justify-content: flex-end;
+    input[type="text"], input[type="password"] {
+      background-color: white;
+      line-height: 1.5rem;
+      padding: 0px 10px;
+    }
     input[type="submit"] {
       width: 100px;
     }
@@ -43,4 +58,7 @@ header {
 }
 div.main {
   padding: 20px;
+  h2{
+    text-align: center;
+  }
 }

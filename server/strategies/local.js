@@ -3,6 +3,8 @@ const passport = require("passport");
 const { query } = require("../database");
 
 passport.serializeUser( (user,done) => {
+  console.log('serializeUser');
+  console.log(user);
   done(null, user.username);
 });
 

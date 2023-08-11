@@ -1,24 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <link rel="stylesheet" type='text/css' href="dist/main.css" />
-  <title></title>
-</head>
-<body>
- <header>
-   <h1>Text Extract</h1>
-   <form action="/users/login" method="POST" class="login">
-    <input type="text" name="username">
-    <input type="password" name="password">
-    <input type="submit" value="Login">
-   </form>
- </header>
+ {{> _header}}
  <div class="main">
    <h1>Hello World</h1>
    <p>The variable a is {{a}} and b is {{b}} </p>
  </div>
- <footer>
- </footer>
-</body>
-</html>
+ {{> _footer}}

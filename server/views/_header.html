@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" type='text/css' href="dist/main.css" />
+  <title></title>
+  <script src="https://code.jquery.com/jquery-3.7.0.slim.min.js" integrity="sha256-tG5mcZUtJsZvyKAxYLVXrmjKBVLd6VpVccqz/r4ypFE=" crossorigin="anonymous"></script>
+  <script src="/js/utils.js"></script>
+</head>
+<body>
+ <header>
+   <h1>Text Extract</h1>
+   {{ #authenticated }}
+    <h4 style="text-align: right">Welcome back {{ user }} </h4>
+    <button id="logout">Logout</button>
+   {{ /authenticated }}
+   {{ ^authenticated }}
+   <form action="/users/login" method="POST" class="login">
+    <input type="text" name="username">
+    <input type="password" name="password">
+    <input type="submit" value="Login">
+   </form>
+   {{ /authenticated }}
+ </header>
+
