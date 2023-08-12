@@ -5,12 +5,12 @@ const { query } = require("../database");
 passport.serializeUser( (user,done) => {
   console.log('serializeUser');
   console.log(user);
-  done(null, user.username);
+  done(null, {userid: user.ID, username: user.username});
 });
 
-passport.deserializeUser( (username, done) => {
+passport.deserializeUser( (user, done) => {
   try {
-    const result =  query(`select * from users where username = '${username}'`);
+    const result =  query(`select * from users where ID = '${user.userid}'`);
     if (result.length) {
       done(null, result[0]);
     }
@@ -20,6 +20,7 @@ passport.deserializeUser( (username, done) => {
 });
 
 passport.use(new localStrategy(
+  /* verification function */
   (username, password, done) => {
      const result =  query(`select * from users where username = '${username}'`);
      console.log(result);

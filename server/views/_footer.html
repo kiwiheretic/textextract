@@ -2,12 +2,13 @@
  </footer>
  <script>
    $(document).ready(function() {
-      $("#logout").on("click", function(evt) {
-        console.log("click");
-
-
-
-
+      $("button#logout").on("click", function(evt) {
+        fetch("/logout",{method:"POST"}).then(function(resp) {
+          return resp.json();
+        }).then( function(jsondata) {
+          if (jsondata.hasOwnProperty("redirect")) 
+            window.location.replace(jsondata['redirect']);
+        });
       });
    });
  </script>

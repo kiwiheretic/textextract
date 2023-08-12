@@ -1,4 +1,3 @@
-const mediaFilePath = __dirname + '/media';
 
 const express = require("express");
 const passport = require("passport");
@@ -11,6 +10,8 @@ const fileUpload = require("express-fileupload");
 
 const SqliteStore = require("better-sqlite3-session-store")(session)
 const db = new sqlite("sessions.db", { verbose: console.log });
+
+const { query, queryRun } = require("./database");
 
 const app = express();
 const mustacheExpress = require ('mustache-express');
@@ -27,7 +28,11 @@ app.set('views', __dirname + '/views');
 app.use(express.urlencoded({extended: false}))
 app.use(express.json());
 
-app.use(express.static(__dirname + '/public'));
+const publicFilePath = __dirname + '/public';
+app.use(express.static(publicFilePath));
+
+const mediaFilePath = publicFilePath + '/media';
+
 app.use(
   session({
     saveUninitialized: false,
@@ -86,20 +91,24 @@ app.get("/dashboard", (req, res) => {
 app.post('/logout', function(req, res, next){
   req.logout(function(err) {
     if (err) { return next(err); }
-    res.redirect('/');
+    res.json( {redirect: '/'});
   });
 });
 
-app.post("/api", (req, res) => {
-  console.log(req.files);
+app.post("/api", async (req, res) => {
   let file = req.files.file;
-
-  file.mv(mediaFilePath + "/" + file.name, function(err) {
-    if (err)
-      return res.status(500).send(err);
-    res.send('File uploaded!');
-    console.log("File uploaded!");
+  
+  const filePromise = new Promise( (resolve, reject) => {
+    file.mv(mediaFilePath + "/" + file.name, function(err) {
+      if (err) reject(new Error('fail'));
+      console.log("resolve");
+      resolve()
+    })
   });
+  await filePromise;
+  let resp = queryRun('Insert into uploaded_files (user_id, filename) values ( ?, ? )', [req.user.ID, file.name ]); 
+  console.log("File uploaded");
+  res.json({successful: true});
 });
 
 

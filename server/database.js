@@ -6,6 +6,12 @@ function query(sql) {
   return db.prepare(sql).all();
 }
 
+function queryRun(sql, arrValues) {
+  return db.prepare(sql).run(...arrValues);
+}
+
 module.exports = {
-  query
+  query,
+  queryRun,
+  db
 }
