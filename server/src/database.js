@@ -10,6 +10,10 @@ function queryGet(sql, arrValues) {
   return db.prepare(sql).get(...arrValues);
 }
 
+function queryAll(sql, arrValues) {
+  return db.prepare(sql).all(...arrValues);
+}
+
 function queryRun(sql, arrValues) {
   return db.prepare(sql).run(...arrValues);
 }
@@ -18,5 +22,6 @@ module.exports = {
   query,
   queryRun,
   queryGet,
+  queryAll,
   db
 }

@@ -1,12 +1,27 @@
 const express = require('express')
 const crypto = require('crypto');
 
-const { query, queryRun, queryGet } = require("../src/database");
+const { query, queryRun, queryGet, queryAll,db } = require("../src/database");
 
 const router = express.Router()
 const mediaFilePath = __dirname + '/../public/media';
 
+// middleware that is specific to this router
+router.use((req, res, next) => {
+  console.log('api Time: ', Date.now())
+  if (req.isAuthenticated() ) {
+    next()
+  } else {
+    res.status(403).send("Not authorised")
+  }
+})
+
 router.get("/files", async (req, res) => {
+  let files = queryAll('select * from uploaded_files where user_id = ?',[req.user.ID]);
+  files.forEach( function(v) {
+    v.file_url = "/media/" + v.hashed_filename;
+  });
+  res.json({successful: true, files});
 });
 
 router.post("/upload-file", async (req, res) => {

@@ -58,4 +58,20 @@ div.main {
 div.main h2 {
   text-align: center;
 }
+div.uploaded-documents {
+  margin-top: 20px;
+}
+div.uploaded-documents h2 {
+  text-align: left;
+}
+div.uploaded-documents div.file-list {
+  display: flex;
+  flex-direction: row;
+  margin: 20px;
+  gap: 20px;
+}
+div.uploaded-documents div.file-list div.document div.image img {
+  width: 200px;
+  height: 200px;
+}
 /*# sourceMappingURL=main.css.map */

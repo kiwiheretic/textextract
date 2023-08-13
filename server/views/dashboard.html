@@ -6,9 +6,31 @@
 		<input id="file" name="file" type="file" />
 		<button type="submit">Upload</button>
 	</form>
+  <div class="uploaded-documents">
+   <h2>Uploaded Documents</h2>
+   <div class="file-list">
+
+   </div>
+  </div>
  </div>
+
  <script>
-  $(document).ready(function() {
+  async function getFiles() {
+    let res = await fetch("/api/files");
+    let jsondata = await res.json();
+    return jsondata.files;
+  }
+  function displayFiles(files) {
+    let div = $(".file-list");
+    files.forEach( function(file) {
+      $(div).append(`<div class="document"><div class="image"><img src="${file.file_url}"> </div><div class="filename">${file.original_filename}</div></div>`);
+    });
+  }
+  $(document).ready(async function() {
+    let files = await getFiles();
+    console.log(files);
+    displayFiles(files);
+
     $('#file-upload').on("submit", function(evt) { 
       console.log("Submit");
       evt.preventDefault();
