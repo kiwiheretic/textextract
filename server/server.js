@@ -1,4 +1,3 @@
-
 const express = require("express");
 const passport = require("passport");
 const local = require("./strategies/local");
@@ -11,13 +10,14 @@ const fileUpload = require("express-fileupload");
 const SqliteStore = require("better-sqlite3-session-store")(session)
 const db = new sqlite("sessions.db", { verbose: console.log });
 
-const { query, queryRun } = require("./database");
+const { query, queryRun } = require("./src/database");
 
 const app = express();
 const mustacheExpress = require ('mustache-express');
 const store = new session.MemoryStore();
 
 const users = require('./routes/users');
+const api = require('./routes/api');
 
 const router = express.Router()
 
@@ -53,6 +53,7 @@ app.use(passport.session());
 app.use(fileUpload());
 
 app.use('/users', users);
+app.use('/api', api);
 
 // Middleware function to add extra context
 app.use((req, res, next) => {
@@ -85,30 +86,6 @@ app.get("/dashboard", (req, res) => {
   } else {
     res.redirect("/");
   }
-});
-
-
-app.post('/logout', function(req, res, next){
-  req.logout(function(err) {
-    if (err) { return next(err); }
-    res.json( {redirect: '/'});
-  });
-});
-
-app.post("/api", async (req, res) => {
-  let file = req.files.file;
-  
-  const filePromise = new Promise( (resolve, reject) => {
-    file.mv(mediaFilePath + "/" + file.name, function(err) {
-      if (err) reject(new Error('fail'));
-      console.log("resolve");
-      resolve()
-    })
-  });
-  await filePromise;
-  let resp = queryRun('Insert into uploaded_files (user_id, filename) values ( ?, ? )', [req.user.ID, file.name ]); 
-  console.log("File uploaded");
-  res.json({successful: true});
 });
 
 

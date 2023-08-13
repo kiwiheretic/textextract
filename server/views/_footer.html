@@ -3,7 +3,7 @@
  <script>
    $(document).ready(function() {
       $("button#logout").on("click", function(evt) {
-        fetch("/logout",{method:"POST"}).then(function(resp) {
+        fetch("/users/logout",{method:"POST"}).then(function(resp) {
           return resp.json();
         }).then( function(jsondata) {
           if (jsondata.hasOwnProperty("redirect")) 

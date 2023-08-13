@@ -1,7 +1,7 @@
  {{> _header}}
  <div class="main">
    <h2>Dashboard</h2>
-   <form  id="file-upload" action="/api" method="post" enctype="multipart/form-data">
+   <form  id="file-upload" action="/api/upload-file" method="post" enctype="multipart/form-data">
 		<label for="file">File</label>
 		<input id="file" name="file" type="file" />
 		<button type="submit">Upload</button>
@@ -11,10 +11,10 @@
   $(document).ready(function() {
     $('#file-upload').on("submit", function(evt) { 
       console.log("Submit");
-      let formData = new FormData( $("#file-upload")[0] );
-      let res = fetch("/api", { method: "POST", body: formData } );
-      console.log(res);
       evt.preventDefault();
+      let formData = new FormData( $("#file-upload")[0] );
+      let res = fetch("/api/upload-file", { method: "POST", body: formData } );
+      console.log(res);
     });
   });
  </script>
