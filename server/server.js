@@ -30,7 +30,7 @@ app.use(express.json());
 
 const publicFilePath = __dirname + '/public';
 app.use(express.static(publicFilePath));
-
+app.set("static root", publicFilePath);
 const mediaFilePath = publicFilePath + '/media';
 
 app.use(

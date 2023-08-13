@@ -26,6 +26,10 @@ button[type="submit"] {
   background: blue;
   color: white;
 }
+.fade-out {
+  opacity: 0;
+  transition: opacity 1s;
+}
 header {
   background-color: steelblue;
   color: white;
@@ -70,8 +74,19 @@ div.uploaded-documents div.file-list {
   margin: 20px;
   gap: 20px;
 }
+div.uploaded-documents div.file-list div.document div.image {
+  position: relative;
+}
 div.uploaded-documents div.file-list div.document div.image img {
   width: 200px;
   height: 200px;
+}
+div.uploaded-documents div.file-list div.document div.image div.close img {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
 }
 /*# sourceMappingURL=main.css.map */

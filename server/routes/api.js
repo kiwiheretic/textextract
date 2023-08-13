@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { query, queryRun, queryGet, queryAll,db } = require("../src/database");
 
 const router = express.Router()
-const mediaFilePath = __dirname + '/../public/media';
 
 // middleware that is specific to this router
 router.use((req, res, next) => {
@@ -26,13 +25,14 @@ router.get("/files", async (req, res) => {
 
 router.post("/upload-file", async (req, res) => {
   let file = req.files.file;
-  console.log(req.static);
+  let mediaRoot = req.app.get("static root") + "/media";
+  console.log(mediaRoot);
   //const mediaFilePath = req.static.root + '/media';
   const fileext = file.name.split('.').pop();
 
   const cryptofilename = crypto.randomBytes(16).toString('hex') + "." + fileext;
   const filePromise = new Promise( (resolve, reject) => {
-    file.mv(mediaFilePath + "/" + cryptofilename, function(err) {
+    file.mv(mediaRoot+ "/" + cryptofilename, function(err) {
       if (err) reject(new Error('fail'));
       console.log("resolve");
       resolve()

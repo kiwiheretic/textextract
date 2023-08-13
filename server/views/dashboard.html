@@ -22,14 +22,29 @@
   }
   function displayFiles(files) {
     let div = $(".file-list");
+    $(div).empty();
     files.forEach( function(file) {
-      $(div).append(`<div class="document"><div class="image"><img src="${file.file_url}"> </div><div class="filename">${file.original_filename}</div></div>`);
+      $(div).append(`<div id="doc-${file.ID}" class="document"><div class="image"><img src="${file.file_url}"> 
+     <div class="close"><img src="/images/close.jpeg"></div>
+      </div>
+     <div class="filename">${file.original_filename}</div>
+     </div>`);
     });
   }
   $(document).ready(async function() {
     let files = await getFiles();
     console.log(files);
     displayFiles(files);
+
+    $("div.close img").on("click", function(evt) {
+      let doc = $(evt.target).closest("div.document");
+      let docid = $(doc).attr("id");
+      let mchresult = docid.match(/doc-(\d+)/);
+      let id = mchresult[1];
+      alert("click " + id);
+      $(doc).fadeOut(1000, function() {
+      });
+    });
 
     $('#file-upload').on("submit", function(evt) { 
       console.log("Submit");
