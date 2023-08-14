@@ -2,7 +2,7 @@ const express = require('express')
 const crypto = require('crypto');
 
 const { query, queryRun, queryGet, queryAll,db } = require("../src/database");
-
+const { unlink } = require("node:fs/promises");
 const router = express.Router()
 
 // middleware that is specific to this router
@@ -23,7 +23,27 @@ router.get("/files", async (req, res) => {
   res.json({successful: true, files});
 });
 
+router.post("/file-delete/:id", async (req, res) => {
+  let mediaRoot = req.app.get("static root") + "/media";
+  let id = req.params.id;
+  let file = queryGet('select * from uploaded_files where user_id = ? and ID = ?',[req.user.ID, id]);
+  console.log(file);
+  let hashfilename = file.hashed_filename;
+  try {
+    await unlink( mediaRoot + "/" + hashfilename );
+  } catch (err) {
+    // pass
+  }
+  queryRun('delete from uploaded_files where user_id = ? and ID = ?',[req.user.ID, id]);
+  res.json({successful: true });
+
+})
+
 router.post("/upload-file", async (req, res) => {
+  if (req.files === null) {
+    res.json({successful: false, error: "No file supplied"});
+    return
+  }
   let file = req.files.file;
   let mediaRoot = req.app.get("static root") + "/media";
   console.log(mediaRoot);

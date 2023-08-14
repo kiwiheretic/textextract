@@ -36,22 +36,34 @@
     console.log(files);
     displayFiles(files);
 
-    $("div.close img").on("click", function(evt) {
-      let doc = $(evt.target).closest("div.document");
+    // It has to be done this way on the on click handler due to the event handler not firing
+    // on newly added dom elements.  Therefore the event handler has to be on the parent element
+    // and to rely on event delegation to bubble up the event.
+    $(".file-list").on("click", "div.close img", async function(evt) {
+      let doc = $(this).closest("div.document");
       let docid = $(doc).attr("id");
       let mchresult = docid.match(/doc-(\d+)/);
       let id = mchresult[1];
-      alert("click " + id);
-      $(doc).fadeOut(1000, function() {
+      let res = await fetch("/api/file-delete/"+id, { method: "POST"} );
+      $(doc).fadeOut(1000, async function() {
+        let files = await getFiles();
+        if (files) {
+          displayFiles(files);
+        }
       });
     });
 
-    $('#file-upload').on("submit", function(evt) { 
+    $('#file-upload').on("submit", async function(evt) { 
       console.log("Submit");
       evt.preventDefault();
       let formData = new FormData( $("#file-upload")[0] );
-      let res = fetch("/api/upload-file", { method: "POST", body: formData } );
+      let res = await fetch("/api/upload-file", { method: "POST", body: formData } );
       console.log(res);
+      let files = await getFiles();
+      if (files) {
+        displayFiles(files);
+      }
+      $(this)[0].reset();
     });
   });
  </script>
