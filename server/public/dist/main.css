@@ -74,6 +74,9 @@ div.uploaded-documents div.file-list {
   margin: 20px;
   gap: 20px;
 }
+div.uploaded-documents div.file-list div.document {
+  width: 250px;
+}
 div.uploaded-documents div.file-list div.document div.image {
   position: relative;
 }
