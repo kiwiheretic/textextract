@@ -57,10 +57,24 @@ header form.login input[type="password"] {
   width: 150px;
 }
 div.main {
+  background: lightgrey;
   padding: 20px;
 }
 div.main h2 {
   text-align: center;
+}
+div.pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+div.pages img.page-image {
+  width: 150px;
+}
+div.document {
+  display: flex;
+  gap: 20px;
+  max-width: 1200px;
 }
 div.uploaded-documents {
   margin-top: 20px;

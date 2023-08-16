@@ -24,8 +24,9 @@
     let div = $(".file-list");
     $(div).empty();
     files.forEach( function(file) {
-      $(div).append(`<div id="doc-${file.ID}" class="document"><div class="image"><img src="${file.file_url}"> 
-     <div class="close"><img src="/images/close.jpeg"></div>
+      $(div).append(`<div id="doc-${file.ID}" class="document">
+      <div class="image"><a href="/document/${file.ID}"><img src="${file.file_url}"></a>
+      <div class="close"><img src="/images/close.jpeg"></div>
       </div>
      <div class="filename">${file.original_filename}</div>
      </div>`);

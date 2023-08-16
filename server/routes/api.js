@@ -3,6 +3,7 @@ const crypto = require('crypto');
 
 const { query, queryRun, queryGet, queryAll,db } = require("../src/database");
 const { writeFile, readFile, unlink, open } = require("node:fs/promises");
+const { exec } = require('child_process')
 
 const fs = require('fs');
 const pdf =require('pdf-thumbnail');
@@ -50,6 +51,58 @@ router.post("/file-delete/:id", async (req, res) => {
   queryRun('delete from uploaded_files where user_id = ? and ID = ?',[req.user.ID, id]);
   res.json({successful: true });
 
+})
+
+router.get("/document/:docid/thumbnail", async (req, res) => {
+  let mediaRoot = req.app.get("static root") + "/media";
+  console.log(req.params);
+  let docid = req.params.docid;
+  let resp = queryGet('select * from uploaded_files where id = ?',[docid]);
+  let thumb_url = "/media/" + resp.thumbnail_file;
+  res.json({successful: true, thumb_url });
+});
+
+router.get("/document/:docid/pages", async (req, res) => {
+  let mediaRoot = req.app.get("static root") + "/media";
+  console.log(req.params);
+  let docid = req.params.docid;
+  
+  let pages_resp = queryGet('select * from uploaded_file_pages where doc_id = ?',[docid]);
+  console.log(pages_resp);
+  let resp = queryGet('select * from uploaded_files where id = ?',[docid]);
+  //resp['thumb_url'] = "/media/" + resp.thumbnail_file;
+  //console.log(mediaRoot + "/" + resp.hashed_filename);
+  let hashDir = ( resp.hashed_filename.split(".").slice(0,-1).join("."));
+  console.log(mediaRoot + "/" + hashDir);
+  if (!  fs.existsSync(mediaRoot + "/" + hashDir)) {
+    fs.mkdirSync(mediaDir + "/" + hashDir);
+  }
+  if (pages_resp === undefined || pages_resp.length == 0) {
+    let cmd = `gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pnggray -sOutputFile="${mediaRoot + "/" + hashDir + '/page_%03d.png'}" -r300 ${mediaRoot + "/" + resp.hashed_filename} `
+    console.log(cmd);
+    try {
+      await new Promise ( (resolve, reject) => {
+        exec( cmd, (error, stdout, stderr) => {
+          if (stderr) console.log(stderr);
+          if (error) { 
+            reject(error);
+          }
+          resolve(stdout);
+        });
+      });
+    } catch (err) {
+      console.log(err);
+    }
+  }
+  filenames = await fs.promises.readdir(mediaRoot + "/" + hashDir); 
+  filenames = filenames.map( (f) => "/media/" + hashDir + "/" + f ).sort();
+  if (pages_resp === undefined || pages_resp.length == 0) {
+    for (filename of filenames) {
+      resp = queryRun('Insert into uploaded_file_pages (doc_id, page_image_url) values ( ?, ?)', [docid, filename]); 
+    }
+  }
+  let pages = queryAll('select * from uploaded_file_pages where doc_id = ?',[docid]);
+  res.json({successful: true, record: resp, pages: pages});
 })
 
 router.post("/upload-file", async (req, res) => {

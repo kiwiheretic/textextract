@@ -88,6 +88,15 @@ app.get("/dashboard", (req, res) => {
   }
 });
 
+app.get("/document/:docid", (req, res) => {
+  if (req.isAuthenticated() ) {
+    console.log(req.params);
+    //res.render("document.html", { "a": "Dashboard", "b": "World" });
+    res.render("document.html", { "params": req.params });
+  } else {
+    res.redirect("/");
+  }
+});
 
 app.listen(3080, () => {
   console.log("App listening on port 3080");
