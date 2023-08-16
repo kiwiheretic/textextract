@@ -71,7 +71,7 @@ div.pages {
 div.pages img.page-image {
   width: 150px;
 }
-div.document {
+div.main > div.document {
   display: flex;
   gap: 20px;
   max-width: 1200px;

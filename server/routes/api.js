@@ -75,7 +75,7 @@ router.get("/document/:docid/pages", async (req, res) => {
   let hashDir = ( resp.hashed_filename.split(".").slice(0,-1).join("."));
   console.log(mediaRoot + "/" + hashDir);
   if (!  fs.existsSync(mediaRoot + "/" + hashDir)) {
-    fs.mkdirSync(mediaDir + "/" + hashDir);
+    fs.mkdirSync(mediaRoot + "/" + hashDir);
   }
   if (pages_resp === undefined || pages_resp.length == 0) {
     let cmd = `gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pnggray -sOutputFile="${mediaRoot + "/" + hashDir + '/page_%03d.png'}" -r300 ${mediaRoot + "/" + resp.hashed_filename} `
