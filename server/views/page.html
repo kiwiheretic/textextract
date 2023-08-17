@@ -1,0 +1,26 @@
+ {{> _header}}
+ <div class="main">
+  <div class="document">
+    <div class="thumbnail">
+    </div>
+    <div class="page">
+    </div>
+  </div>
+ </div>
+
+ <script>
+  $(document).ready(async function() {
+    let res, jsondata;
+    res = await fetch("/api/document/{{ params.docid }}/thumbnail");
+    jsondata = await res.json();
+    console.log(jsondata);
+    $(".thumbnail").append(`<img src="${jsondata.thumb_url}">`);
+
+    res = await fetch("/api/document/{{ params.docid }}/page/{{ params.page }}");
+    jsondata = await res.json();
+    console.log(jsondata);
+    $(".page").append(`<img src="${jsondata.page.page_image_url}">`);
+  });
+ </script>
+
+ {{> _footer}}

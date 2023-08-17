@@ -105,6 +105,13 @@ router.get("/document/:docid/pages", async (req, res) => {
   res.json({successful: true, record: resp, pages: pages});
 })
 
+router.get("/document/:docid/page/:page", async (req, res) => {
+  let mediaRoot = req.app.get("static root") + "/media";
+  console.log(req.params);
+  let page = queryGet('select * from uploaded_file_pages where id = ?',[req.params.page]);
+  res.json({successful: true, page: page});
+})
+
 router.post("/upload-file", async (req, res) => {
   if (req.files === null) {
     res.json({successful: false, error: "No file supplied"});

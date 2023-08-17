@@ -11,15 +11,19 @@
  <header>
    <h1>Text Extract</h1>
    {{ #authenticated }}
-    <h4 style="text-align: right">Welcome back {{ user }} </h4>
-    <button id="logout">Logout</button>
-   {{ /authenticated }}
-   {{ ^authenticated }}
-   <form action="/users/login" method="POST" class="login">
-    <input type="text" name="username">
-    <input type="password" name="password">
-    <input type="submit" value="Login">
-   </form>
-   {{ /authenticated }}
+   <div class="right">
+     <h4 style="text-align: right">Welcome back {{ user }} </h4>
+      <button id="logout">Logout</button>
+     {{ /authenticated }}
+     {{ ^authenticated }}
+     <form action="/users/login" method="POST" class="login">
+      <input type="text" name="username">
+      <input type="password" name="password">
+      <input type="submit" value="Login">
+     </form>
+     </div>
+     {{ /authenticated }}
+
+   </div>
  </header>
 

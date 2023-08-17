@@ -37,11 +37,21 @@ button[type="submit"]  {
 }
 
 header {
-  background-color: steelblue;
+  background: url(/images/header-part1.jpeg);
   color: white;
-  padding: 20px;
+  padding: 40px;
   text-align: center;
+  position: relative;
 
+  div.right {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    text-align: right;
+    > * {
+      margin-top:10px;
+    }
+  }
   form.login {
     display: flex;
     justify-content: flex-end;
@@ -67,6 +77,12 @@ div.main {
   h2{
     text-align: center;
   }
+  > div.document {
+    display: flex;
+    gap: 20px;
+    max-width: 1200px;
+  }
+
 }
 div.pages {
   display: flex;
@@ -77,11 +93,10 @@ div.pages {
   }
 }
 
-div.main > div.document {
-  display: flex;
-  gap: 20px;
-  max-width: 1200px;
+div.page img {
+  width: 100%;
 }
+
 
 
 div.uploaded-documents {
@@ -92,10 +107,11 @@ div.uploaded-documents {
   div.file-list {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     margin: 20px;
     gap: 20px;
     div.document {
-      width: 250px;
+      width: 200px;
       div.image {
         position: relative;
         img {

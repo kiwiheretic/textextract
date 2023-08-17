@@ -88,6 +88,15 @@ app.get("/dashboard", (req, res) => {
   }
 });
 
+app.get("/document/:docid/page/:page", (req, res) => {
+  if (req.isAuthenticated() ) {
+    console.log(req.params);
+    res.render("page.html", { "params": req.params });
+  } else {
+    res.redirect("/");
+  }
+});
+
 app.get("/document/:docid", (req, res) => {
   if (req.isAuthenticated() ) {
     console.log(req.params);
