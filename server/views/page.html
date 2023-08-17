@@ -3,7 +3,8 @@
   <div class="document">
     <div class="thumbnail">
     </div>
-    <div class="page">
+     <div id="page">
+      <canvas id="page-canvas"></canvas>
     </div>
   </div>
  </div>
@@ -19,7 +20,24 @@
     res = await fetch("/api/document/{{ params.docid }}/page/{{ params.page }}");
     jsondata = await res.json();
     console.log(jsondata);
-    $(".page").append(`<img src="${jsondata.page.page_image_url}">`);
+    // $(".page").append(`<img src="${jsondata.page.page_image_url}">`);
+
+    const img = new Image();        
+    img.src = jsondata.page.page_image_url;        
+    img.onload = () => { 
+      const div_canvas = document.getElementById("page");
+      const canvas = document.getElementById("page-canvas");
+      const context = canvas.getContext('2d');
+
+      const canvas_scale = img.width / div_canvas.clientWidth;
+
+      const canvas_height = img.height / canvas_scale;
+      const canvas_width = img.width / canvas_scale;
+
+      canvas.height = canvas_height; //img.height;
+      canvas.width = canvas_width; //img.width;
+      context.drawImage(img, 0, 0, canvas_width, canvas_height );
+    }
   });
  </script>
 

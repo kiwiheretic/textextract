@@ -89,6 +89,9 @@ div.pages img.page-image {
 div.page img {
   width: 100%;
 }
+div.document div#page {
+  width: 100%;
+}
 div.uploaded-documents {
   margin-top: 20px;
 }
