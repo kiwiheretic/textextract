@@ -14,29 +14,45 @@
     let res, jsondata;
     res = await fetch("/api/document/{{ params.docid }}/thumbnail");
     jsondata = await res.json();
-    console.log(jsondata);
     $(".thumbnail").append(`<img src="${jsondata.thumb_url}">`);
 
     res = await fetch("/api/document/{{ params.docid }}/page/{{ params.page }}");
     jsondata = await res.json();
-    console.log(jsondata);
-    // $(".page").append(`<img src="${jsondata.page.page_image_url}">`);
 
     const img = new Image();        
     img.src = jsondata.page.page_image_url;        
-    img.onload = () => { 
+    img.onload = async () => { 
+
       const div_canvas = document.getElementById("page");
       const canvas = document.getElementById("page-canvas");
       const context = canvas.getContext('2d');
 
-      const canvas_scale = img.width / div_canvas.clientWidth;
+      let canvas_scale = img.width / div_canvas.clientWidth;
 
       const canvas_height = img.height / canvas_scale;
       const canvas_width = img.width / canvas_scale;
 
       canvas.height = canvas_height; //img.height;
       canvas.width = canvas_width; //img.width;
+      console.log( canvas_width, canvas_height);
       context.drawImage(img, 0, 0, canvas_width, canvas_height );
+      res = await fetch("/api/document/{{ params.docid }}/page/{{ params.page }}/analyse");
+      jsondata = await res.json();
+      console.log(jsondata);
+      let { width, height } = jsondata;
+      console.log(width, height);
+
+      console.log(width / ( width / canvas_width) , height / (width / canvas_width )) 
+
+      context.strokeStyle = 'red';
+      context.lineWidth=2;
+      for (let block of jsondata.blocks) {
+        let x1 = block[0];
+        let y1 = block[1];
+        let w = block[2] - block[0] + 1;
+        let h = block[3] - block[1] + 1;
+        context.strokeRect((x1-3)/canvas_scale, (y1-3)/canvas_scale, (w+3)/canvas_scale, (h+3)/canvas_scale);
+      }
     }
   });
  </script>

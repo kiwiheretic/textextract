@@ -4,11 +4,14 @@ const crypto = require('crypto');
 const { query, queryRun, queryGet, queryAll,db } = require("../src/database");
 const { writeFile, readFile, unlink, open } = require("node:fs/promises");
 const { exec } = require('child_process')
+const { dataToRaster, findBoxes } = require('./analyse');
 
 const fs = require('fs');
 const pdf =require('pdf-thumbnail');
 
 const router = express.Router()
+
+const PNG = require("pngjs").PNG;
 
 // middleware that is specific to this router
 router.use((req, res, next) => {
@@ -55,7 +58,6 @@ router.post("/file-delete/:id", async (req, res) => {
 
 router.get("/document/:docid/thumbnail", async (req, res) => {
   let mediaRoot = req.app.get("static root") + "/media";
-  console.log(req.params);
   let docid = req.params.docid;
   let resp = queryGet('select * from uploaded_files where id = ?',[docid]);
   let thumb_url = "/media/" + resp.thumbnail_file;
@@ -110,6 +112,29 @@ router.get("/document/:docid/page/:page", async (req, res) => {
   console.log(req.params);
   let page = queryGet('select * from uploaded_file_pages where id = ?',[req.params.page]);
   res.json({successful: true, page: page});
+})
+
+router.get("/document/:docid/page/:page/analyse", async (req, res) => {
+  console.log(req.params);
+  let staticRoot = req.app.get("static root");
+  let page = queryGet('select * from uploaded_file_pages where id = ?',[req.params.page]);
+  let imagePath = staticRoot + page.page_image_url;
+  console.log(imagePath);
+
+  let imageData = await new Promise( (resolve, reject) => {
+    fs.createReadStream(imagePath) 
+    .pipe(
+      new PNG({
+        filterType: 4,
+      })
+    )
+   .on("parsed", function () {
+      resolve(this);
+    })
+  });
+  let raster = dataToRaster(imageData.data,  imageData.width, imageData.height);
+  let blocks = findBoxes(raster)
+  res.json({successful: true, blocks:blocks, width: imageData.width, height: imageData.height});
 })
 
 router.post("/upload-file", async (req, res) => {
