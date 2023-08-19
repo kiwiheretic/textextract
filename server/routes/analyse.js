@@ -159,8 +159,300 @@ function findBoxes(rasterData) {
   blocks = blocks.concat(currblocks);
   return blocks;
 }
+
+function AddMetaInformationToCharacters(sorted_boxes) {
+  // This adds "meta" information to each bounding block, such as the 
+  // amount of empty space to the right and left of it (meaning how close is
+  // it to other characters).  It also reblocks the characters from rows to
+  // sub blocks within rows.
+  newArray = [];
+  let lboxes = sorted_boxes.length;
+  let spacingLeft= null;
+  let spacingRight = null;
+  for (let ii=0; ii < lboxes; ii++) {
+    if (ii>0) {
+      spacingLeft = sorted_boxes[ii][0] - sorted_boxes[ii-1][2];
+    }
+    if (ii < lboxes - 1) {
+      spacingRight = sorted_boxes[ii+1][0] - sorted_boxes[ii][2];
+    }
+    let x1 = sorted_boxes[ii][0];
+    let y1 = sorted_boxes[ii][1];
+    let x2 = sorted_boxes[ii][2];
+    let y2 = sorted_boxes[ii][3];
+    let width = x2-x1+1;
+    let height = y2-y1+1;
+    let character = { 
+      x1: x1,
+      y1: y1,
+      x2: x2,
+      y2: y2,
+      spacing_left: spacingLeft,
+      spacing_right: spacingRight,
+      width: width,
+      height: height,
+      area: width*height
+    }
+    newArray.push(character);
+  }
+  let len = newArray.length;
+
+  let elements = newArray.filter( element => (element.spacing_right != null && element.spacing_right > 0) ).map( element => element.spacing_right )
+  let sortedElements = [...elements].sort((a,b) => a - b);
+  //let sortedElements = newArray.filter( element => (element.spacing_right != null && element.spacing_right > 0) ).map( element => element.spacing_right ).toSorted((a,b) => a - b);
+  let middleElementIdx = Math.trunc(sortedElements.length / 2);
+  let medianElementSpacing = sortedElements[middleElementIdx];
+  let UpperQuartileIdx = Math.trunc(3*sortedElements.length / 4);
+  let delimiterSpacing = sortedElements[UpperQuartileIdx];
+  const maxDelimiterSpacingFactor = 6;
+
+  let allReblocked = [];
+  let charactersReblocked = [];
+  let bottom_line = null;
+  let top_line = null;
+  for (let i in newArray) {
+    let character = newArray[i];
+    charactersReblocked.push(character);
+    // Make sure the spacingLeft > 0 otherwise it means that the character
+    // has jumped backwards which can happen for the dot of the letter i
+    // which occurs in the middle of the stalk of the i and not after it.
+    if (top_line === null || character.y1 < top_line) {
+      top_line = character.y1;
+    }
+    if (bottom_line === null || character.y2 > bottom_line ) {
+      bottom_line = character.y2;
+    }
+    if (character.spacing_left > 0 &&
+      character.spacing_right > maxDelimiterSpacingFactor * delimiterSpacing) {
+      analysisLog( `On line ${top_line} the spacing to right of ${character.spacing_right} > ${maxDelimiterSpacingFactor} * ${delimiterSpacing} causes us to move to a new box\n`)
+      // Do some kind of character analysis to try and determine what is in
+      // character block.
+      analysis = analyseCharacterBlock(charactersReblocked);
+      let array = [...charactersReblocked];
+      allReblocked.push({
+        left_column: array[0].x1,
+        right_column: array[array.length-1].x2,
+        charactersInBlock: array,
+        analysis: analysis
+      });
+      charactersReblocked = []
+      
+    }
+  }
+  if (charactersReblocked.length > 0) {
+    analysis = analyseCharacterBlock(charactersReblocked);
+    let array = [...charactersReblocked];
+    let arrLen = array.length;
+    allReblocked.push({
+      left_column: array[0].x1,
+      right_column: array[array.length-1].x2,
+      analysis,
+      charactersInBlock: array});
+  }
+
+  let sorted_row = { 
+       bottom_line: bottom_line,
+       top_line: top_line,
+       blocks : allReblocked }
+  
+  return sorted_row;
+} // AddMetaInformationToCharacters
+
+function getRowSorted(boxes) {
+  // This sorts the boxes into rows and character positions with rows.
+  //
+  boxes.sort(comparey);
+  let double_sorted = [];
+  let bottom_line = null;
+  //let top_line = null;
+  let sorted_boxes = [];
+  let newArray;
+  let sorted_row;
+  boxes.forEach( function(item) {
+    let [x1, y1, x2, y2] = item;
+
+    // The minimum amount of space required below a line of characters to 
+    // determine if a new row has happened.
+    const newLineMinimumMargin = 3;
+
+    // Is this character below the current row of characters?
+    if (bottom_line != null && y1 > bottom_line + newLineMinimumMargin) {
+      sorted_boxes.sort(comparex);
+      sorted_row = AddMetaInformationToCharacters(sorted_boxes);
+      double_sorted.push(sorted_row);
+      sorted_boxes = [];
+      // I haven't bothered setting bottom line to null here because the
+      // line numbers are always increasing so it will take care of itself
+    }
+    // Keep track of the bottom most line
+    if (bottom_line === null || y2 > bottom_line ) {
+      bottom_line = y2;
+    }
+
+    sorted_boxes.push(item);
+  });
+  sorted_boxes.sort(comparex);
+  sorted_row = AddMetaInformationToCharacters(sorted_boxes);
+  for (let ii=0; ii < double_sorted.length; ii++) {
+    let row = double_sorted[ii];
+    let rowSpacingNext = null;
+    let rowSpacingPrev = null;
+    if (ii < double_sorted.length - 1) {
+      let nextRow = double_sorted[ii+1];
+      rowSpacingNext = nextRow.top_line - row.bottom_line + 1;
+    }
+    if (ii > 0) {
+      let prevRow = double_sorted[ii-1];
+      rowSpacingPrev = row.top_line - prevRow.bottom_line + 1;
+    }
+    row.row_spacing_next = rowSpacingNext;
+    row.row_spacing_prev = rowSpacingPrev;
+  }
+  double_sorted.push(sorted_row);
+
+  return double_sorted;
+}
+
+function comparey(obj1, obj2) {
+  // compare two bounding boxes (characters) to see if one starts lower than
+  // the other.
+  let [x1a, y1a, x1b, y1b] = obj1;
+  let [x2a, y2a, x2b, y2b] = obj2;
+  if (y1a < y2a) {
+    return -1;
+  } else if (y1a > y2a) {
+    return 1;
+  } else {
+    return 0;
+  }
+
+} // comparey
+
+
+function comparex(obj1, obj2) {
+  // compare two bounding boxes to see if one is left of the other or not.
+  let [x1a, y1a, x1b, y1b] = obj1;
+  let [x2a, y2a, x2b, y2b] = obj2;
+  if (x1a < x2a) {
+    return -1;
+  } else if (x1a > x2a) {
+    return 1;
+  } else {
+    return 0;
+  }
+
+} // comparex
+
+function calcBoxExtent(row, boundingBox) {
+  // This is a very crude paragraph block locating procedure which
+  // propably quick falls apart if there is more than one block.
+  let [x1, y1, x2, y2] = boundingBox;
+  let first_block = row.blocks[0];
+  let last_block = row.blocks[row.blocks.length - 1];
+
+  if (y1 === null || y1 > row.top_line) y1 = row.top_line;
+  if (y2 === null || y2 < row.bottom_line) y2 = row.bottom_line;
+
+  if (x1 === null || x1 > first_block.left_column) x1 = first_block.left_column;
+  if (x2 === null || x2 < last_block.right_column) x2 = last_block.right_column;
+  return [x1, y1, x2, y2];
+}
+function groupIntoParagraphs(sortedBlocks) {
+  const paragraphTolerance = 5;
+  
+  let paragraphs = []
+  let paragraph = []
+  let x1, x2, y1, y2;
+
+  let spacings = [...sortedBlocks.map( elem => elem.row_spacing_next )].sort((a,b) => a-b)
+  let quartileIdx = Math.floor(spacings.length / 4);
+  let quartileSpacing = spacings[quartileIdx];
+  console.log("Quartile Spacing = " + quartileSpacing);
+
+  x1 = x2 = y1 = y2 = null;
+  for (let ii=0; ii<sortedBlocks.length; ii++) {
+    let row = sortedBlocks[ii];
+    let width = x2-x1+1;
+    let height = y2 - y1 + 1;
+    if (quartileSpacing > row.row_spacing_next - paragraphTolerance) {
+      paragraph.push(ii);
+      [x1, y1, x2, y2 ] = calcBoxExtent(row, [x1, y1, x2, y2]);
+
+    } else if (row.row_spacing_prev !== null &&
+        quartileSpacing > row.row_spacing_prev - paragraphTolerance) {
+      paragraph.push(ii);
+      [x1, y1, x2, y2 ] = calcBoxExtent(row, [x1, y1, x2, y2]);
+      let paragraphMeta = {
+        indices: paragraph, 
+        type: Symbol.for("normal"),
+        bbox: [x1, y1, x2, y2] 
+      }
+      paragraphs.push(paragraphMeta)
+      paragraph = [];
+      x1 = x2 = y1 = y2 = null;
+    } else { // it is propably an orphan
+      let s;
+      [x1, y1, x2, y2 ] = calcBoxExtent(row, [x1, y1, x2, y2]);
+      if (ii == 0) {
+        s = Symbol.for("header?")
+      } else {
+        s = Symbol.for("orphan")
+      }
+
+      let paragraphMeta = {
+        indices: [ii], 
+        type: s,
+        bbox: [x1, y1, x2, y2] 
+      }
+      paragraphs.push(paragraphMeta)
+      x1 = x2 = y1 = y2 = null;
+    }
+  }
+  return paragraphs;
+} // groupIntoParagraphs
+
+function analyseCharacterBlock(charBlock) {
+  // Try and guess what kind of content the block contains
+  const thresholdAboveBaseLine = 5;
+  let baseLine = null;
+  let topLine, bottomLine;
+  let countAboveBaseLine = 0;
+
+  let baseLineArray = [];
+  let numChars = charBlock.length;
+  let bases = [...charBlock.map( e => e.y2 )].sort();
+  let idx = Math.floor(numChars / 2);
+  let medianBaseline = bases[idx];
+  for (let ii=0; ii < charBlock.length; ii++) {
+    let character = charBlock[ii];
+    if (character.y2 < medianBaseline - thresholdAboveBaseLine) { 
+      countAboveBaseLine++;
+      baseLineArray.push({idx: ii, baseLine: character.y2 });
+    }
+    if (topLine == null || character.y1 < topLine) topLine = character.y1;
+    if (bottomLine == null || character.y2 > bottomLine) bottomLine = character.y2;
+  }
+  if (countAboveBaseLine > 0) 
+    guess = Symbol.for("math")
+  else 
+    guess = Symbol.for("paragraph")
+  
+  let analysis = {
+    topLine,
+    bottomLine,
+    medianBaseline,
+    countAboveBaseLine,
+    baseLineArray,
+    numChars,
+    guess
+  }
+  return analysis;
+}
+
 module.exports = {
   dataToRaster,
-  findBoxes
+  findBoxes,
+  getRowSorted,
+  groupIntoParagraphs
 }
 

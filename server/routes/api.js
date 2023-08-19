@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { query, queryRun, queryGet, queryAll,db } = require("../src/database");
 const { writeFile, readFile, unlink, open } = require("node:fs/promises");
 const { exec } = require('child_process')
-const { dataToRaster, findBoxes } = require('./analyse');
+const { groupIntoParagraphs, getRowSorted, dataToRaster, findBoxes } = require('./analyse');
 
 const fs = require('fs');
 const pdf =require('pdf-thumbnail');
@@ -134,7 +134,11 @@ router.get("/document/:docid/page/:page/analyse", async (req, res) => {
   });
   let raster = dataToRaster(imageData.data,  imageData.width, imageData.height);
   let blocks = findBoxes(raster)
-  res.json({successful: true, blocks:blocks, width: imageData.width, height: imageData.height});
+  let sortedBlocks = getRowSorted(blocks);
+  let paragraphs = groupIntoParagraphs(sortedBlocks);
+  console.log(paragraphs)
+
+  res.json({successful: true, blocks:sortedBlocks, paragraphs: paragraphs, width: imageData.width, height: imageData.height});
 })
 
 router.post("/upload-file", async (req, res) => {

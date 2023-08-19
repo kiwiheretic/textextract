@@ -46,11 +46,25 @@
 
       context.strokeStyle = 'red';
       context.lineWidth=2;
-      for (let block of jsondata.blocks) {
-        let x1 = block[0];
-        let y1 = block[1];
-        let w = block[2] - block[0] + 1;
-        let h = block[3] - block[1] + 1;
+      for (let outerBlock of jsondata.blocks) {
+        let chars = outerBlock.blocks[0].charactersInBlock;
+        for (let charBlock of chars) {
+          let x1 =  charBlock.x1;
+          let y1 = charBlock.y1;
+          let w = charBlock.x2 - charBlock.x1 + 1;
+          let h = Math.abs(charBlock.y2 - charBlock.y1) + 1;
+          context.strokeRect((x1-3)/canvas_scale, (y1-3)/canvas_scale, (w+3)/canvas_scale, (h+3)/canvas_scale);
+
+        }
+      }
+      context.strokeStyle = 'blue';
+      context.lineWidth=2;
+      for (let paragraph of jsondata.paragraphs) {
+        console.log(paragraph);
+        let bbox = paragraph.bbox;
+        let [x1, y1, x2, y2] = bbox;
+        let w = x2-x1+1;
+        let h = y2 - y1 +1;
         context.strokeRect((x1-3)/canvas_scale, (y1-3)/canvas_scale, (w+3)/canvas_scale, (h+3)/canvas_scale);
       }
     }
